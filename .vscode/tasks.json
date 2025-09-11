@@ -1,0 +1,66 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "azurite: start",
+			"type": "shell",
+			"command": "azurite",
+			"args": [
+				"--silent",
+				"--location",
+				"${workspaceFolder}/.azurite",
+				"--debug",
+				"${workspaceFolder}/.azurite/debug.log"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"presentation": {
+				"echo": false,
+				"reveal": "silent",
+				"focus": false,
+				"panel": "shared"
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			}
+		},
+		{
+			"type": "func",
+			"label": "func: host start",
+			"command": "host start",
+			"problemMatcher": "$func-python-watch",
+			"isBackground": true,
+			"dependsOn": ["azurite: start", "pip install (functions)"]
+		},
+		{
+			"label": "pip install (functions)",
+			"type": "shell",
+			"osx": {
+				"command": "uv pip install -r requirements.txt"
+			},
+			"windows": {
+				"command": "uv pip install -r requirements.txt"
+			},
+			"linux": {
+				"command": "uv pip install -r requirements.txt"
+			},
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"VIRTUAL_ENV": "${workspaceFolder}/.venv"
+				}
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		}
+	]
+}

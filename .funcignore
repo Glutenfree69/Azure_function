@@ -1,0 +1,33 @@
+# Azurite (émulateur local)  
+.azurite/
+
+# Python cache et environnement virtuel
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Configuration locale
+local.settings.json
+
+# VS Code
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Documentation
+README.md
+
+# Autres fichiers temporaires
+*.tmp
+*.temp
