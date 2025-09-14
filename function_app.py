@@ -1,65 +1,43 @@
 import azure.functions as func
 import json
 import os
+from azure.cosmos import CosmosClient  # Import au début
 import logging
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-def get_env_variable(key):
-    """Try multiple methods to get environment variable"""
-    methods = {}
+@app.route(route="counter", methods=["GET", "POST"])
+def counter(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
     
-    # Method 1: os.environ.get()
+    # Debug complet
+    endpoint = os.environ.get('COSMOS_DB_ENDPOINT')
+    key = os.environ.get('COSMOS_DB_KEY')
+    
+    # Retourner plus d'infos de debug
+    debug_info = {
+        "endpoint": endpoint,
+        "key_exists": bool(key),
+        "key_length": len(key) if key else 0,
+        "all_cosmos_vars": {k: v for k, v in os.environ.items() if 'COSMOS' in k.upper()}
+    }
+    
+    if not endpoint:
+        return func.HttpResponse(
+            json.dumps({"error": "Missing COSMOS_DB_ENDPOINT", "debug": debug_info}),
+            status_code=500
+        )
+    
     try:
-        value = os.environ.get(key)
-        methods["os.environ.get"] = {"value": value, "success": bool(value)}
+        client = CosmosClient(endpoint, key)
+        database = client.get_database_client(os.environ['COSMOS_DB_DATABASE'])
+        container = database.get_container_client(os.environ['COSMOS_DB_CONTAINER'])
+        
+        return func.HttpResponse(
+            json.dumps({"status": "cosmos connection ok", "debug": debug_info})
+        )
     except Exception as e:
-        methods["os.environ.get"] = {"error": str(e), "success": False}
-    
-    # Method 2: os.getenv()
-    try:
-        value = os.getenv(key)
-        methods["os.getenv"] = {"value": value, "success": bool(value)}
-    except Exception as e:
-        methods["os.getenv"] = {"error": str(e), "success": False}
-    
-    # Method 3: Direct access
-    try:
-        value = os.environ[key]
-        methods["os.environ[key]"] = {"value": value, "success": bool(value)}
-    except Exception as e:
-        methods["os.environ[key]"] = {"error": str(e), "success": False}
-    
-    # Method 4: Check if it exists with a different name
-    try:
-        similar_keys = [k for k in os.environ.keys() if key.upper() in k.upper()]
-        methods["similar_keys"] = {"keys": similar_keys, "success": len(similar_keys) > 0}
-    except Exception as e:
-        methods["similar_keys"] = {"error": str(e), "success": False}
-    
-    return methods
-
-@app.route(route="debug-env", methods=["GET"])
-def debug_env(req: func.HttpRequest) -> func.HttpResponse:
-    """Debug all environment access methods"""
-    
-    # Test each Cosmos variable
-    cosmos_vars = ["COSMOS_DB_ENDPOINT", "COSMOS_DB_KEY", "COSMOS_DB_DATABASE", "COSMOS_DB_CONTAINER"]
-    results = {}
-    
-    for var in cosmos_vars:
-        results[var] = get_env_variable(var)
-    
-    # Also list ALL environment variables
-    all_env = dict(os.environ)
-    
-    return func.HttpResponse(
-        json.dumps({
-            "cosmos_variable_tests": results,
-            "total_env_vars": len(all_env),
-            "env_keys_sample": list(all_env.keys())[:20],
-            "cosmos_related_keys": [k for k in all_env.keys() if 'COSMOS' in k.upper()]
-        }, indent=2),
-        status_code=200,
-        headers={"Content-Type": "application/json"}
-    )
+        return func.HttpResponse(
+            json.dumps({"error": f"Cosmos error: {str(e)}", "debug": debug_info}),
+            status_code=500
+        )
