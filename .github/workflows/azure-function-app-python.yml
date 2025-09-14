@@ -66,7 +66,7 @@ jobs:
       shell: bash
       run: |
         echo "Getting resource group for function app..."
-        RG_NAME=$(az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --query resourceGroup -o tsv)
+        RG_NAME="rg-vladimirpoutine69" 
         echo "Resource group: $RG_NAME"
         
         echo "Starting deployment..."
