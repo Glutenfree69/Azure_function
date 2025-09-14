@@ -52,7 +52,7 @@ resource "azurerm_application_insights" "example" {
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
   application_type    = "web"
-  workspace_id = azurerm_log_analytics_workspace.example.id
+  workspace_id        = azurerm_log_analytics_workspace.example.id
 }
 
 # Create a service plan
@@ -79,17 +79,18 @@ resource "azurerm_function_app_flex_consumption" "example" {
   runtime_version             = var.runtime_version
   maximum_instance_count      = 50
   instance_memory_in_mb       = 2048
-  
+
   site_config {
     # Configuration pour Application Insights
     application_insights_connection_string = azurerm_application_insights.example.connection_string
-    application_insights_key              = azurerm_application_insights.example.instrumentation_key
+    application_insights_key               = azurerm_application_insights.example.instrumentation_key
   }
 
   # App settings nécessaires
   app_settings = {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.example.connection_string
-    "APPINSIGHTS_INSTRUMENTATIONKEY"       = azurerm_application_insights.example.instrumentation_key
+    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.example.instrumentation_key
+    "AzureWebJobsStorage"                   = azurerm_storage_account.example.primary_connection_string
   }
 }
 
@@ -125,6 +126,6 @@ output "github_actions_info" {
     function_app_name   = azurerm_function_app_flex_consumption.example.name
     resource_group_name = azurerm_resource_group.example.name
     subscription_id     = data.azurerm_client_config.current.subscription_id
-    tenant_id          = data.azurerm_client_config.current.tenant_id
+    tenant_id           = data.azurerm_client_config.current.tenant_id
   }
 }
