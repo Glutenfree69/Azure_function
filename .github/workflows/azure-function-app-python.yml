@@ -58,9 +58,12 @@ jobs:
       shell: bash
       run: |
         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-        zip -r ../function-app.zip . \
+        zip -r function-app.zip . \
           -x "*.git*" "__pycache__/*" "*.pyc" "venv/*" ".env*" "local.settings.json"
         popd
+
+        echo "ZIP package created:"
+        ls -la function-app.zip
 
     - name: 'Deploy to Azure Functions'
       shell: bash
