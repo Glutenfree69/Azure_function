@@ -143,7 +143,6 @@ crash.log
 .terraformrc
 terraform.rc
 *.tfplan
-*.tfvars
 *.tfbackup
 
 zzzz.txt
