@@ -20,7 +20,7 @@ name: Deploy Python project to Azure Function App
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main" ,"je_lis_la_doc_zzzz"]
 
 env:
   AZURE_FUNCTIONAPP_NAME: 'vladimirpoutine69'   # set this to your function app name on Azure
