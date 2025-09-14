@@ -73,6 +73,8 @@ resource "azurerm_function_app_flex_consumption" "vladimirpoutine69" {
   }
 
   app_settings = {
+     "AzureWebJobsStorage"       = "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.vladimirpoutine69.name};AccountKey=${azurerm_storage_account.vladimirpoutine69.primary_access_key};EndpointSuffix=core.windows.net"
+
     "COSMOS_DB_ENDPOINT"    = azurerm_cosmosdb_account.counter_db.endpoint
     "COSMOS_DB_KEY"         = azurerm_cosmosdb_account.counter_db.primary_key
     "COSMOS_DB_DATABASE"    = azurerm_cosmosdb_sql_database.counter_database.name
