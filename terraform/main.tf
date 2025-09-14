@@ -9,7 +9,7 @@ resource "random_pet" "rg_name" {
 # Create a resource group
 resource "azurerm_resource_group" "example" {
   location = var.resource_group_location
-  name     = random_pet.rg_name.id
+  name     = coalesce("${var.resource_group_name_prefix}-${var.resource_group_name}", random_pet.rg_name.id)
 }
 
 # Random String for unique naming of resources

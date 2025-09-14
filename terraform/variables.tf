@@ -1,6 +1,6 @@
 variable "resource_group_name" {
   type        = string
-  default     = ""
+  default     = "vladimirpoutine69"
   description = "The name of the Azure resource group. If blank, a random name will be generated."
 }
 
@@ -12,7 +12,7 @@ variable "resource_group_name_prefix" {
 
 variable "resource_group_location" {
   type        = string
-  default     = "eastus"
+  default     = "francecentral"
   description = "Location of the resource group."
 }
 
@@ -31,41 +31,41 @@ variable "sa_account_replication_type" {
 variable "sa_name" {
   description = "The name of the storage account. If blank, a random name will be generated."
   type        = string
-  default     = ""
+  default     = "vladimirpoutine69"
 }
 
 variable "ws_name" {
   description = "The name of the Log Analytics workspace. If blank, a random name will be generated."
   type        = string
-  default     = ""
+  default     = "vladimirpoutine69"
 }
 
 variable "ai_name" {
   description = "The name of the Application Insights instance. If blank, a random name will be generated."
   type        = string
-  default     = ""
+  default     = "vladimirpoutine69"
 }
 
 variable "asp_name" {
   description = "The name of the App Service Plan. If blank, a random name will be generated."
   type        = string
-  default     = ""
+  default     = "vladimirpoutine69"
 }
 
 variable "fa_name" {
   description = "The name of the Function App. If blank, a random name will be generated."
   type        = string
-  default     = ""
+  default     = "vladimirpoutine69"
 }
 
 variable "runtime_name" {
   description = "The name of the language worker runtime."
   type        = string
-  default     = "node" # Allowed: dotnet-isolated, java, node, powershell, python
+  default     = "python" # Allowed: dotnet-isolated, java, node, powershell, python
 }
 
 variable "runtime_version" {
   description = "The version of the language worker runtime."
   type        = string
-  default     = "20" # Supported versions: see https://aka.ms/flexfxversions
+  default     = "3.13" # Supported versions: see https://aka.ms/flexfxversions
 }
