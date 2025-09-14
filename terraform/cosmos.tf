@@ -1,0 +1,54 @@
+# Create Cosmos DB Account
+resource "azurerm_cosmosdb_account" "counter_db" {
+  name                = coalesce(var.cosmos_account_name, "cosmos-${random_string.name.result}")
+  location            = azurerm_resource_group.vladimirpoutine69.location
+  resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+  offer_type          = "Standard"
+  kind                = "GlobalDocumentDB"
+
+  geo_location {
+    location          = azurerm_resource_group.vladimirpoutine69.location
+    failover_priority = 0
+  }
+
+  consistency_policy {
+    consistency_level       = "BoundedStaleness"
+    max_interval_in_seconds = 300
+    max_staleness_prefix    = 100000
+  }
+
+  depends_on = [
+    azurerm_resource_group.vladimirpoutine69
+  ]
+}
+
+# Create Cosmos DB SQL Database
+resource "azurerm_cosmosdb_sql_database" "counter_database" {
+  name                = "counterdb"
+  resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+  account_name        = azurerm_cosmosdb_account.counter_db.name
+  throughput          = 400
+}
+
+# Create Cosmos DB SQL Container (equivalent to table)
+resource "azurerm_cosmosdb_sql_container" "counter_container" {
+  name                  = "counters"
+  resource_group_name   = azurerm_resource_group.vladimirpoutine69.name
+  account_name          = azurerm_cosmosdb_account.counter_db.name
+  database_name         = azurerm_cosmosdb_sql_database.counter_database.name
+  partition_key_paths   = ["/id"]
+  partition_key_version = 1
+  throughput            = 400
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/*"
+    }
+
+    excluded_path {
+      path = "/\"_etag\"/?"
+    }
+  }
+}

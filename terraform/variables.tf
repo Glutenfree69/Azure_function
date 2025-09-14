@@ -58,3 +58,8 @@ variable "github_actions_object_id" {
   description = "Object ID of the manually created GitHub Actions service principal"
   type        = string
 }
+
+variable "cosmos_account_name" {
+  description = "Name of the Cosmos DB account (if null, will be generated)"
+  type        = string
+}
