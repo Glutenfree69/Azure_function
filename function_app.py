@@ -5,7 +5,7 @@ from azure.cosmos import CosmosClient
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-# Config Cosmos DB
+# Config Cosmos DB (variables d'environnement)
 client = CosmosClient(os.environ['COSMOS_DB_ENDPOINT'], os.environ['COSMOS_DB_KEY'])
 database = client.get_database_client(os.environ['COSMOS_DB_DATABASE'])
 container = database.get_container_client(os.environ['COSMOS_DB_CONTAINER'])
