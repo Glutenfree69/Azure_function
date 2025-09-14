@@ -1,5 +1,5 @@
-# This Terraform configuration creates a Flex Consumption plan app in Azure Functions 
-# with the required Storage account and Blob Storage deployment container.
+# This Terraform configuration creates a Consumption plan app in Azure Functions 
+# with the required Storage account and Application Insights.
 
 # Create a resource group
 resource "azurerm_resource_group" "vladimirpoutine69" {
@@ -16,12 +16,8 @@ resource "azurerm_storage_account" "vladimirpoutine69" {
   account_replication_type = var.sa_account_replication_type
 }
 
-# Create a storage container
-resource "azurerm_storage_container" "vladimirpoutine69" {
-  name                  = "vladimirpoutine69-flexcontainer"
-  storage_account_id    = azurerm_storage_account.vladimirpoutine69.id
-  container_access_type = "private"
-}
+# Note: No need for storage container in Consumption plan
+# (Flex Consumption specific requirement removed)
 
 # Create a Log Analytics workspace for Application Insights
 resource "azurerm_log_analytics_workspace" "vladimirpoutine69" {
@@ -41,45 +37,70 @@ resource "azurerm_application_insights" "vladimirpoutine69" {
   workspace_id        = azurerm_log_analytics_workspace.vladimirpoutine69.id
 }
 
-# Create a service plan
+# Create a service plan (CHANGED: From FC1 to Y1 for Consumption)
 resource "azurerm_service_plan" "vladimirpoutine69" {
   name                = coalesce(var.asp_name, random_string.name.result)
   resource_group_name = azurerm_resource_group.vladimirpoutine69.name
   location            = azurerm_resource_group.vladimirpoutine69.location
-  sku_name            = "FC1"
+  sku_name            = "Y1"      # Y1 = Consumption plan (instead of FC1 = Flex Consumption)
   os_type             = "Linux"
 }
 
-# Create a function app
-resource "azurerm_function_app_flex_consumption" "vladimirpoutine69" {
+# Create a function app (CHANGED: From flex_consumption to linux_function_app)
+resource "azurerm_linux_function_app" "vladimirpoutine69" {
   name                = coalesce(var.fa_name, random_string.name.result)
   resource_group_name = azurerm_resource_group.vladimirpoutine69.name
   location            = azurerm_resource_group.vladimirpoutine69.location
   service_plan_id     = azurerm_service_plan.vladimirpoutine69.id
 
-  storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.vladimirpoutine69.primary_blob_endpoint}${azurerm_storage_container.vladimirpoutine69.name}"
-  storage_authentication_type = "StorageAccountConnectionString"
-  storage_access_key          = azurerm_storage_account.vladimirpoutine69.primary_access_key
-  runtime_name                = var.runtime_name
-  runtime_version             = var.runtime_version
-  maximum_instance_count      = 50
-  instance_memory_in_mb       = 2048
+  # Storage configuration (simplified for Consumption plan)
+  storage_account_name       = azurerm_storage_account.vladimirpoutine69.name
+  storage_account_access_key = azurerm_storage_account.vladimirpoutine69.primary_access_key
 
   site_config {
     # Configuration pour Application Insights
     application_insights_connection_string = azurerm_application_insights.vladimirpoutine69.connection_string
     application_insights_key               = azurerm_application_insights.vladimirpoutine69.instrumentation_key
+
+    # Python configuration (ADDED: Required for Consumption plan)
+    application_stack {
+      python_version = var.runtime_version
+    }
+
+    # Optional: Configure CORS if needed
+    # cors {
+    #   allowed_origins = ["*"]
+    # }
   }
 
+  # App settings - These will work properly with Consumption plan!
   app_settings = {
-     "AzureWebJobsStorage"       = "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.vladimirpoutine69.name};AccountKey=${azurerm_storage_account.vladimirpoutine69.primary_access_key};EndpointSuffix=core.windows.net"
+    # Storage connection (automatically managed, but explicit is better)
+    "AzureWebJobsStorage" = "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.vladimirpoutine69.name};AccountKey=${azurerm_storage_account.vladimirpoutine69.primary_access_key};EndpointSuffix=core.windows.net"
+    
+    # Function runtime (important for Python)
+    "FUNCTIONS_WORKER_RUNTIME" = "python"
+    "FUNCTIONS_EXTENSION_VERSION" = "~4"
 
+    # Cosmos DB settings (these will work now!)
     "COSMOS_DB_ENDPOINT"    = azurerm_cosmosdb_account.counter_db.endpoint
     "COSMOS_DB_KEY"         = azurerm_cosmosdb_account.counter_db.primary_key
     "COSMOS_DB_DATABASE"    = azurerm_cosmosdb_sql_database.counter_database.name
     "COSMOS_DB_CONTAINER"   = azurerm_cosmosdb_sql_container.counter_container.name
   }
 
-  depends_on = [ azurerm_cosmosdb_sql_container.counter_container, azurerm_cosmosdb_sql_database.counter_database, azurerm_cosmosdb_account.counter_db ]
+  # Dependencies
+  depends_on = [
+    azurerm_cosmosdb_sql_container.counter_container,
+    azurerm_cosmosdb_sql_database.counter_database,
+    azurerm_cosmosdb_account.counter_db
+  ]
+
+  # Lifecycle management
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_ENABLE_SYNC_UPDATE_SITE"],
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+    ]
+  }
 }
