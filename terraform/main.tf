@@ -1,20 +1,6 @@
 # This Terraform configuration creates a Flex Consumption plan app in Azure Functions 
 # with the required Storage account and Blob Storage deployment container.
 
-# Create a random pet to generate a unique resource group name
-resource "random_pet" "rg_name" {
-  prefix = "rg"
-}
-
-# Random String for unique naming of resources
-resource "random_string" "name" {
-  length  = 8
-  special = false
-  upper   = false
-  lower   = true
-  numeric = false
-}
-
 # Create a resource group
 resource "azurerm_resource_group" "vladimirpoutine69" {
   location = var.resource_group_location
@@ -85,20 +71,4 @@ resource "azurerm_function_app_flex_consumption" "vladimirpoutine69" {
     application_insights_connection_string = azurerm_application_insights.vladimirpoutine69.connection_string
     application_insights_key               = azurerm_application_insights.vladimirpoutine69.instrumentation_key
   }
-}
-
-######## GitHub deployment setup #######
-
-# Assign Website Contributor role to Service Principal
-resource "azurerm_role_assignment" "github_actions_website" {
-  scope                = azurerm_resource_group.vladimirpoutine69.id
-  role_definition_name = "Website Contributor"
-  principal_id         = var.github_actions_object_id
-}
-
-# Assign Storage Blob Data Contributor role (needed for deployments)
-resource "azurerm_role_assignment" "github_actions_storage" {
-  scope                = azurerm_storage_account.vladimirpoutine69.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = var.github_actions_object_id
 }
