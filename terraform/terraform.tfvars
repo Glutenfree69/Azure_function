@@ -1,1 +1,13 @@
 github_actions_object_id = "61d850ea-a0df-410f-9c58-99ef8b77ecac"
+
+resource_group_name = "vladimirpoutine69"
+resource_group_location = "francecentral"
+sa_account_tier = "Standard"
+sa_account_replication_type = "LRS"
+sa_name = "vladimirpoutine69"
+ws_name = "vladimirpoutine69"
+ai_name = "vladimirpoutine69"
+asp_name = "vladimirpoutine69"
+fa_name = "vladimirpoutine69"
+runtime_name = "python"
+runtime_version = "3.13"
