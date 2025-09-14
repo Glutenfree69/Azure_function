@@ -17,3 +17,14 @@ output "fa_name" {
 output "fa_url" {
   value = "https://${azurerm_function_app_flex_consumption.example.name}.azurewebsites.net"
 }
+
+# Outputs utiles pour GitHub Actions
+output "github_actions_info" {
+  description = "Information needed for GitHub Actions"
+  value = {
+    function_app_name   = azurerm_function_app_flex_consumption.example.name
+    resource_group_name = azurerm_resource_group.example.name
+    subscription_id     = data.azurerm_client_config.current.subscription_id
+    tenant_id           = data.azurerm_client_config.current.tenant_id
+  }
+}

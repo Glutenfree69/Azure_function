@@ -69,3 +69,9 @@ variable "runtime_version" {
   type        = string
   default     = "3.13" # Supported versions: see https://aka.ms/flexfxversions
 }
+
+# Variables pour le service principal GitHub (créé manuellement)
+variable "github_actions_object_id" {
+  description = "Object ID of the manually created GitHub Actions service principal"
+  type        = string
+}

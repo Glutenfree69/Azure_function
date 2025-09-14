@@ -6,12 +6,6 @@ resource "random_pet" "rg_name" {
   prefix = var.resource_group_name_prefix
 }
 
-# Create a resource group
-resource "azurerm_resource_group" "example" {
-  location = var.resource_group_location
-  name     = coalesce("${var.resource_group_name_prefix}-${var.resource_group_name}", random_pet.rg_name.id)
-}
-
 # Random String for unique naming of resources
 resource "random_string" "name" {
   length  = 8
@@ -19,6 +13,12 @@ resource "random_string" "name" {
   upper   = false
   lower   = true
   numeric = false
+}
+
+# Create a resource group
+resource "azurerm_resource_group" "example" {
+  location = var.resource_group_location
+  name     = coalesce("${var.resource_group_name_prefix}-${var.resource_group_name}", random_pet.rg_name.id)
 }
 
 # Create a storage account
@@ -91,21 +91,10 @@ resource "azurerm_function_app_flex_consumption" "example" {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.example.connection_string
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.example.instrumentation_key
     "AzureWebJobsStorage"                   = azurerm_storage_account.example.primary_connection_string
-    "SCM_DO_BUILD_DURING_DEPLOYMENT"        = true
-    "ENABLE_ORYX_BUILD"                     = true
   }
 }
 
 ######## GitHub deployment setup #######
-
-# Variables pour le service principal GitHub (créé manuellement)
-variable "github_actions_object_id" {
-  description = "Object ID of the manually created GitHub Actions service principal"
-  type        = string
-}
-
-# Get current client (pour les permissions)
-data "azurerm_client_config" "current" {}
 
 # Assign Website Contributor role to Service Principal
 resource "azurerm_role_assignment" "github_actions_website" {
@@ -119,15 +108,4 @@ resource "azurerm_role_assignment" "github_actions_storage" {
   scope                = azurerm_storage_account.example.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.github_actions_object_id
-}
-
-# Outputs utiles pour GitHub Actions
-output "github_actions_info" {
-  description = "Information needed for GitHub Actions"
-  value = {
-    function_app_name   = azurerm_function_app_flex_consumption.example.name
-    resource_group_name = azurerm_resource_group.example.name
-    subscription_id     = data.azurerm_client_config.current.subscription_id
-    tenant_id           = data.azurerm_client_config.current.tenant_id
-  }
 }
