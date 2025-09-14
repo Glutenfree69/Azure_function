@@ -83,3 +83,39 @@ resource "azurerm_function_app_flex_consumption" "example" {
   site_config {
   }
 }
+
+######## GitHub deployment setup #######
+
+# Variables pour le service principal GitHub (créé manuellement)
+variable "github_actions_object_id" {
+  description = "Object ID of the manually created GitHub Actions service principal"
+  type        = string
+}
+
+# Get current client (pour les permissions)
+data "azurerm_client_config" "current" {}
+
+# Assign Website Contributor role to Service Principal
+resource "azurerm_role_assignment" "github_actions_website" {
+  scope                = azurerm_resource_group.example.id
+  role_definition_name = "Website Contributor"
+  principal_id         = var.github_actions_object_id
+}
+
+# Assign Storage Blob Data Contributor role (needed for deployments)
+resource "azurerm_role_assignment" "github_actions_storage" {
+  scope                = azurerm_storage_account.example.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = var.github_actions_object_id
+}
+
+# Outputs utiles pour GitHub Actions
+output "github_actions_info" {
+  description = "Information needed for GitHub Actions"
+  value = {
+    function_app_name   = azurerm_function_app_flex_consumption.example.name
+    resource_group_name = azurerm_resource_group.example.name
+    subscription_id     = data.azurerm_client_config.current.subscription_id
+    tenant_id          = data.azurerm_client_config.current.tenant_id
+  }
+}

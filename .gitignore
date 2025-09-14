@@ -145,3 +145,5 @@ terraform.rc
 *.tfplan
 *.tfvars
 *.tfbackup
+
+zzzz.txt

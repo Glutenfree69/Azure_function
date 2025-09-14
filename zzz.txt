@@ -1,3 +1,0 @@
-https://learn.microsoft.com/en-us/azure/azure-functions/functions-create-first-function-terraform?tabs=core-tools&pivots=programming-language-python
-
-https://learn.microsoft.com/en-us/azure/azure-functions/functions-how-to-github-actions?tabs=windows%2Cdotnet&pivots=method-template
