@@ -81,6 +81,15 @@ resource "azurerm_function_app_flex_consumption" "example" {
   instance_memory_in_mb       = 2048
   
   site_config {
+    # Configuration pour Application Insights
+    application_insights_connection_string = azurerm_application_insights.example.connection_string
+    application_insights_key              = azurerm_application_insights.example.instrumentation_key
+  }
+
+  # App settings nécessaires
+  app_settings = {
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.example.connection_string
+    "APPINSIGHTS_INSTRUMENTATIONKEY"       = azurerm_application_insights.example.instrumentation_key
   }
 }
 
