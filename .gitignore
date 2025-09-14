@@ -135,3 +135,13 @@ __azurite_db*__.json
 .python_packages
 
 .azurite
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+crash.log
+.terraformrc
+terraform.rc
+*.tfplan
+*.tfvars
+*.tfbackup

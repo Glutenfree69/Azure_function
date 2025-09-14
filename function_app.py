@@ -14,13 +14,13 @@ def get_table_client():
     """Obtient le client pour Azure Table Storage"""
     service_client = TableServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
     table_client = service_client.get_table_client(table_name=TABLE_NAME)
-    
+
     # Créer la table si elle n'existe pas
     try:
         table_client.create_table()
     except Exception:
         pass  # Table existe déjà
-    
+
     return table_client
 
 def get_counter_value():
@@ -47,7 +47,7 @@ def update_counter_value(new_value):
         entity['PartitionKey'] = 'counter'
         entity['RowKey'] = 'main'
         entity['count'] = new_value
-        
+
         logging.info("Upserting entity...")
         table_client.upsert_entity(entity=entity)
         logging.info(f"Counter updated successfully to {new_value}")
@@ -57,19 +57,19 @@ def update_counter_value(new_value):
         return False
 
 @app.route(route="counter", methods=["GET", "POST"])
-def counter_function(req: func.HttpRequest) -> func.HttpResponse:
+def counter(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Counter function processed a request.')
-    
+
     if req.method == "POST":
         try:
             # Incrémenter le compteur
             logging.info('POST request - getting current counter value')
             current_count = get_counter_value()
             logging.info(f'Current count: {current_count}')
-            
+
             new_count = current_count + 1
             logging.info(f'Trying to update counter to: {new_count}')
-            
+
             if update_counter_value(new_count):
                 logging.info(f'Counter successfully incremented to: {new_count}')
                 return func.HttpResponse(
@@ -90,15 +90,15 @@ def counter_function(req: func.HttpRequest) -> func.HttpResponse:
                 status_code=500,
                 mimetype="application/json"
             )
-    
+
     elif req.method == "GET":
         # Récupérer la valeur actuelle et retourner la page HTML
         current_count = get_counter_value()
-        
+
         # Détecter le type de stockage utilisé
         storage_type = "💾 Table Storage" if get_table_client() else "🧠 Mémoire (local)"
         storage_info = "Les données persistent entre les redémarrages" if get_table_client() else "Stockage temporaire - données perdues au redémarrage"
-        
+
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -106,10 +106,10 @@ def counter_function(req: func.HttpRequest) -> func.HttpResponse:
             <title>Compteur Azure Function</title>
             <meta charset="UTF-8">
             <style>
-                body {{ 
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                    text-align: center; 
-                    margin-top: 50px; 
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    text-align: center;
+                    margin-top: 50px;
                     background-color: #f5f5f5;
                 }}
                 .container {{
@@ -120,27 +120,27 @@ def counter_function(req: func.HttpRequest) -> func.HttpResponse:
                     max-width: 500px;
                     margin: 0 auto;
                 }}
-                .counter {{ 
-                    font-size: 72px; 
-                    margin: 30px; 
-                    color: #0078d4; 
+                .counter {{
+                    font-size: 72px;
+                    margin: 30px;
+                    color: #0078d4;
                     font-weight: bold;
                 }}
-                .button {{ 
-                    background-color: #0078d4; 
-                    color: white; 
-                    padding: 15px 30px; 
-                    font-size: 18px; 
-                    border: none; 
-                    border-radius: 5px; 
-                    cursor: pointer; 
+                .button {{
+                    background-color: #0078d4;
+                    color: white;
+                    padding: 15px 30px;
+                    font-size: 18px;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
                     transition: background-color 0.3s;
                 }}
                 .button:hover {{ background-color: #106ebe; }}
                 .button:active {{ transform: scale(0.95); }}
-                .info {{ 
-                    margin-top: 20px; 
-                    color: #666; 
+                .info {{
+                    margin-top: 20px;
+                    color: #666;
                     font-size: 14px;
                 }}
                 .storage-type {{
@@ -163,19 +163,19 @@ def counter_function(req: func.HttpRequest) -> func.HttpResponse:
                     {storage_info}
                 </div>
             </div>
-            
+
             <script>
                 async function incrementCounter() {{
                     const button = document.querySelector('.button');
                     button.disabled = true;
                     button.textContent = '⏳ Chargement...';
-                    
+
                     try {{
                         const response = await fetch(window.location.href, {{
                             method: 'POST'
                         }});
                         const data = await response.json();
-                        
+
                         if (data.count !== undefined) {{
                             document.getElementById('counter').textContent = data.count;
                         }} else {{
@@ -193,7 +193,7 @@ def counter_function(req: func.HttpRequest) -> func.HttpResponse:
         </body>
         </html>
         """
-        
+
         return func.HttpResponse(
             html_content,
             mimetype="text/html"

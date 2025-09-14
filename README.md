@@ -2,6 +2,8 @@
 
 Un compteur web persistant construit avec Azure Functions (Python) et Azure Table Storage. Ce projet démontre l'utilisation des services cloud Azure pour créer une application web simple mais complète.
 
+https://learn.microsoft.com/en-us/azure/azure-functions/how-to-create-function-vs-code?pivots=programming-language-python
+
 ## 📋 Table des matières
 
 - [Vue d'ensemble](#-vue-densemble)
@@ -430,7 +432,7 @@ Dans Azure :
 ---
 
 **Auteur :** Nick Guer
-**Version :** 1.0  
-**Dernière mise à jour :** Septembre 2025  
+**Version :** 1.0
+**Dernière mise à jour :** Septembre 2025
 
 💡 **Astuce :** N'hésitez pas à expérimenter et modifier le code pour apprendre ! Azure offre de nombreux services qui peuvent enrichir cette application de base.
