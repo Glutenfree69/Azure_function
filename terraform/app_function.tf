@@ -82,7 +82,10 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
     "FUNCTIONS_WORKER_RUNTIME" = "python"
     "FUNCTIONS_EXTENSION_VERSION" = "~4"
 
-    # Cosmos DB settings (these will work now!)
+    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING" = "DefaultEndpointsProtocol=https;AccountName=${azurerm_storage_account.vladimirpoutine69.name};AccountKey=${azurerm_storage_account.vladimirpoutine69.primary_access_key};EndpointSuffix=core.windows.net"
+    "WEBSITE_CONTENTSHARE" = lower(coalesce(var.fa_name, random_string.name.result))
+
+    # Cosmos DB settings
     "COSMOS_DB_ENDPOINT"    = azurerm_cosmosdb_account.counter_db.endpoint
     "COSMOS_DB_KEY"         = azurerm_cosmosdb_account.counter_db.primary_key
     "COSMOS_DB_DATABASE"    = azurerm_cosmosdb_sql_database.counter_database.name
