@@ -91,6 +91,8 @@ resource "azurerm_function_app_flex_consumption" "example" {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.example.connection_string
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.example.instrumentation_key
     "AzureWebJobsStorage"                   = azurerm_storage_account.example.primary_connection_string
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"        = true
+    "ENABLE_ORYX_BUILD"                     = true
   }
 }
 
