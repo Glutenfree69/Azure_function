@@ -131,13 +131,13 @@ resource "azurerm_application_insights" "example" {
 - Collecte des logs applicatifs
 - Debugging et diagnostics
 
-#### 6. Service Plan (Flex Consumption)
+#### 6. Service Plan (Consumption Y1 c'est le default et c'est pay-per-use)
 ```hcl
 resource "azurerm_service_plan" "example" {
   name                = coalesce(var.asp_name, random_string.name.result)
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
-  sku_name            = "FC1"
+  sku_name            = "Y1"
   os_type             = "Linux"
 }
 ```
