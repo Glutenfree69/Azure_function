@@ -39,16 +39,4 @@ resource "azurerm_cosmosdb_sql_container" "counter_container" {
   partition_key_paths   = ["/id"]
   partition_key_version = 1
   throughput            = 400
-
-  indexing_policy {
-    indexing_mode = "consistent"
-
-    included_path {
-      path = "/*"
-    }
-
-    excluded_path {
-      path = "/\"_etag\"/?"
-    }
-  }
 }
