@@ -4,6 +4,7 @@ import os
 from azure.cosmos import CosmosClient
 from azure.identity import DefaultAzureCredential  # ← Nouveau import !
 import logging
+import datetime as datetime
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
@@ -21,14 +22,14 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
         if not all([endpoint, database_name, container_name]):
             return func.HttpResponse("Configuration Cosmos DB manquante", status_code=500)
         
-        # ✅ Authentification sécurisée avec Managed Identity
+        # Authentification sécurisée avec Managed Identity
         if use_managed_identity:
-            # 🆔 Utilise l'identité de la Function App (comme IAM role AWS)
+            # Utilise l'identité de la Function App (comme IAM role AWS)
             credential = DefaultAzureCredential()
             client = CosmosClient(endpoint, credential)
             logging.info("✅ Authentification via Managed Identity")
         else:
-            # 🔑 Fallback : utilise la clé (moins sécurisé)
+            # Fallback : utilise la clé (moins sécurisé)
             key = os.environ.get('COSMOS_DB_KEY')
             if not key:
                 return func.HttpResponse("Clé Cosmos DB manquante", status_code=500)
