@@ -41,18 +41,45 @@ resource "azurerm_cosmosdb_sql_container" "counter_container" {
   throughput            = 400
 }
 
-# Utiliser une data source pour récupérer le rôle
-data "azurerm_cosmosdb_sql_role_definition" "cosmos_db_data_contributor" {
+# Le data commenté la en dessous fonctionne mais je trouve ca degeulasse et pas maintenable
+# Je préfère créer un rôle custom avec les permissions minimales nécessaires
+
+# # Utiliser une data source pour récupérer le rôle
+# data "azurerm_cosmosdb_sql_role_definition" "cosmos_db_data_contributor" {
+#   resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+#   account_name        = azurerm_cosmosdb_account.counter_db.name
+#   role_definition_id  = "00000000-0000-0000-0000-000000000002"  # Built-in Data Contributor
+# }
+
+resource "azurerm_cosmosdb_sql_role_definition" "counter_admin" {
+  name                = "counter-admin"
   resource_group_name = azurerm_resource_group.vladimirpoutine69.name
   account_name        = azurerm_cosmosdb_account.counter_db.name
-  role_definition_id  = "00000000-0000-0000-0000-000000000002"  # Built-in Data Contributor
+  type               = "CustomRole"
+  assignable_scopes  = [
+    azurerm_cosmosdb_account.counter_db.id  # Peut être assigné sur tout le compte
+  ]
+
+  permissions {
+    data_actions = [
+      # Métadonnées nécessaires pour le SDK
+      "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+      
+      # Accès complet aux containers (pour lire/écrire dans 'counters')
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*",
+      
+      # Accès complet aux documents dans les containers
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*"
+    ]
+  }
 }
+
 
 resource "azurerm_cosmosdb_sql_role_assignment" "function_cosmos_access_v2" {
   resource_group_name = azurerm_resource_group.vladimirpoutine69.name
   account_name        = azurerm_cosmosdb_account.counter_db.name
   scope              = azurerm_cosmosdb_account.counter_db.id
-  role_definition_id = data.azurerm_cosmosdb_sql_role_definition.cosmos_db_data_contributor.id
+  role_definition_id = azurerm_cosmosdb_sql_role_definition.counter_admin.id
   principal_id       = azurerm_linux_function_app.vladimirpoutine69.identity[0].principal_id
   
   depends_on = [azurerm_linux_function_app.vladimirpoutine69]

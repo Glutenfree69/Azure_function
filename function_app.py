@@ -1,10 +1,10 @@
 import azure.functions as func
 import json
 import os
-from azure.cosmos import CosmosClient
-from azure.identity import DefaultAzureCredential  # ← Nouveau import !
+from azure.cosmos import CosmosClient, exceptions
+from azure.identity import DefaultAzureCredential
 import logging
-import datetime as datetime
+from datetime import datetime
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
