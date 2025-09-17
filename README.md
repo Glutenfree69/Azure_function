@@ -213,7 +213,59 @@ resource "azurerm_cosmosdb_sql_container" "counter_container" {
 - **Partition Key** : `/id` (clé de partitionnement pour la distribution des données)
 - **Throughput** : 400 RU/s dédié au container
 
-#### 9. Function App
+#### 9. Cosmos DB Custom Role Definition
+```hcl
+resource "azurerm_cosmosdb_sql_role_definition" "counter_admin" {
+  name                = "counter-admin"
+  resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+  account_name        = azurerm_cosmosdb_account.counter_db.name
+  type               = "CustomRole"
+  assignable_scopes  = [
+    azurerm_cosmosdb_account.counter_db.id
+  ]
+
+  permissions {
+    data_actions = [
+      "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*"
+    ]
+  }
+}
+```
+
+**Rôle** : Définition de rôle personnalisé pour l'accès sécurisé à Cosmos DB
+
+**Avantages par rapport aux clés** :
+- **Sécurité** : Utilise l'identité managée de la Function App (pas de clés à gérer)
+- **Permissions granulaires** : Accès limité aux opérations nécessaires uniquement
+- **Rotation automatique** : Pas de rotation manuelle des clés
+- **Audit** : Traçabilité via Azure AD
+
+**Permissions accordées** :
+- `readMetadata` : Lecture des métadonnées du compte
+- `containers/*` : Accès complet aux containers
+- `items/*` : Accès complet aux documents
+
+#### 10. Cosmos DB Role Assignment
+```hcl
+resource "azurerm_cosmosdb_sql_role_assignment" "function_cosmos_access_v2" {
+  resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+  account_name        = azurerm_cosmosdb_account.counter_db.name
+  scope              = azurerm_cosmosdb_account.counter_db.id
+  role_definition_id = azurerm_cosmosdb_sql_role_definition.counter_admin.id
+  principal_id       = azurerm_linux_function_app.vladimirpoutine69.identity[0].principal_id
+}
+```
+
+**Rôle** : Assignation du rôle personnalisé à l'identité managée de la Function App
+
+**Sécurité** :
+- Utilise l'identité managée système de la Function App
+- Évite l'utilisation des clés d'accès dans les app settings
+- Principe du moindre privilège appliqué
+
+#### 11. Function App
 ```hcl
 resource "azurerm_linux_function_app" "vladimirpoutine69" {
   name                = coalesce(var.fa_name, random_string.name.result)
@@ -235,9 +287,9 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
 
   app_settings = {
     "COSMOS_DB_ENDPOINT"  = azurerm_cosmosdb_account.counter_db.endpoint
-    "COSMOS_DB_KEY"       = azurerm_cosmosdb_account.counter_db.primary_key
     "COSMOS_DB_DATABASE"  = azurerm_cosmosdb_sql_database.counter_database.name
     "COSMOS_DB_CONTAINER" = azurerm_cosmosdb_sql_container.counter_container.name
+    # Note: Pas de COSMOS_DB_KEY - utilisation de l'identité managée
   }
 }
 ```
@@ -245,7 +297,8 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
 **Configuration** :
 - **Runtime** : Python 3.11
 - **OS** : Linux
-- **Variables d'environnement Cosmos DB** : Endpoint, clé, base de données et container
+- **Identité managée** : Activée pour l'accès sécurisé à Cosmos DB
+- **Variables d'environnement Cosmos DB** : Endpoint, base de données et container (sans clé)
 - **Storage** : Connection automatique au Storage Account
 
 ### Système de permissions RBAC
@@ -403,7 +456,7 @@ Récupère le code source depuis le repository.
 #### App Settings sensibles :
 - `AzureWebJobsStorage` : Connection string du storage account (géré automatiquement)
 - `APPLICATIONINSIGHTS_CONNECTION_STRING` : Télémétrie (géré automatiquement)
-- `COSMOS_DB_KEY` : Clé d'accès à Cosmos DB (injecté via Terraform)
+- **Cosmos DB** : Accès via identité managée (pas de clés stockées)
 
 ### Application Function - Compteur avec Cosmos DB
 
