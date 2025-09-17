@@ -40,3 +40,20 @@ resource "azurerm_cosmosdb_sql_container" "counter_container" {
   partition_key_version = 1
   throughput            = 400
 }
+
+# Utiliser une data source pour récupérer le rôle
+data "azurerm_cosmosdb_sql_role_definition" "cosmos_db_data_contributor" {
+  resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+  account_name        = azurerm_cosmosdb_account.counter_db.name
+  role_definition_id  = "00000000-0000-0000-0000-000000000002"  # Built-in Data Contributor
+}
+
+resource "azurerm_cosmosdb_sql_role_assignment" "function_cosmos_access_v2" {
+  resource_group_name = azurerm_resource_group.vladimirpoutine69.name
+  account_name        = azurerm_cosmosdb_account.counter_db.name
+  scope              = azurerm_cosmosdb_account.counter_db.id
+  role_definition_id = data.azurerm_cosmosdb_sql_role_definition.cosmos_db_data_contributor.id
+  principal_id       = azurerm_linux_function_app.vladimirpoutine69.identity[0].principal_id
+  
+  depends_on = [azurerm_linux_function_app.vladimirpoutine69]
+}

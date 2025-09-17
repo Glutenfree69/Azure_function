@@ -54,6 +54,11 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
   storage_account_name       = azurerm_storage_account.vladimirpoutine69.name
   storage_account_access_key = azurerm_storage_account.vladimirpoutine69.primary_access_key
 
+  # MANAGED IDENTITY (équivalent IAM Role)
+  identity {
+    type = "SystemAssigned"
+  }
+
   site_config {
     # Configuration pour Application Insights
     application_insights_connection_string = azurerm_application_insights.vladimirpoutine69.connection_string
@@ -74,9 +79,11 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
   app_settings = {
     # Cosmos DB settings
     "COSMOS_DB_ENDPOINT"  = azurerm_cosmosdb_account.counter_db.endpoint
-    "COSMOS_DB_KEY"       = azurerm_cosmosdb_account.counter_db.primary_key
+    # "COSMOS_DB_KEY"       = azurerm_cosmosdb_account.counter_db.primary_key
     "COSMOS_DB_DATABASE"  = azurerm_cosmosdb_sql_database.counter_database.name
     "COSMOS_DB_CONTAINER" = azurerm_cosmosdb_sql_container.counter_container.name
+
+    "COSMOS_DB_USE_MANAGED_IDENTITY" = "true"
   }
 
   # Dependencies

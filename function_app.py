@@ -1,9 +1,9 @@
 import azure.functions as func
 import json
 import os
-from azure.cosmos import CosmosClient, exceptions
+from azure.cosmos import CosmosClient
+from azure.identity import DefaultAzureCredential  # ← Nouveau import !
 import logging
-from datetime import datetime
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
@@ -14,21 +14,33 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # Configuration Cosmos DB
         endpoint = os.environ.get('COSMOS_DB_ENDPOINT')
-        key = os.environ.get('COSMOS_DB_KEY')
         database_name = os.environ.get('COSMOS_DB_DATABASE')
         container_name = os.environ.get('COSMOS_DB_CONTAINER')
+        use_managed_identity = os.environ.get('COSMOS_DB_USE_MANAGED_IDENTITY', 'false').lower() == 'true'
         
-        if not all([endpoint, key, database_name, container_name]):
+        if not all([endpoint, database_name, container_name]):
             return func.HttpResponse("Configuration Cosmos DB manquante", status_code=500)
         
-        # Initialisation du client Cosmos DB
-        client = CosmosClient(endpoint, key)
+        # ✅ Authentification sécurisée avec Managed Identity
+        if use_managed_identity:
+            # 🆔 Utilise l'identité de la Function App (comme IAM role AWS)
+            credential = DefaultAzureCredential()
+            client = CosmosClient(endpoint, credential)
+            logging.info("✅ Authentification via Managed Identity")
+        else:
+            # 🔑 Fallback : utilise la clé (moins sécurisé)
+            key = os.environ.get('COSMOS_DB_KEY')
+            if not key:
+                return func.HttpResponse("Clé Cosmos DB manquante", status_code=500)
+            client = CosmosClient(endpoint, key)
+            logging.info("⚠️ Authentification via clé primaire")
+        
+        # Le reste du code reste identique...
         database = client.get_database_client(database_name)
         container = database.get_container_client(container_name)
         
         counter_id = "main-counter"
         
-        # Traitement selon la méthode HTTP
         if req.method == "GET":
             return handle_get_request(container, counter_id)
         elif req.method == "POST":
@@ -36,10 +48,7 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
             
     except Exception as e:
         logging.error(f"Erreur générale: {str(e)}")
-        return func.HttpResponse(
-            f"Erreur: {str(e)}", 
-            status_code=500
-        )
+        return func.HttpResponse(f"Erreur: {str(e)}", status_code=500)
 
 def get_or_create_counter(container, counter_id):
     """Récupère ou crée le document compteur"""
