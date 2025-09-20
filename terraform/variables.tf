@@ -1,3 +1,8 @@
+variable "subscription_id" {
+  type        = string
+  description = "The subscription ID to deploy resources to."
+}
+
 variable "resource_group_name" {
   type        = string
   description = "The name of the Azure resource group. If blank, a random name will be generated."

@@ -12,14 +12,10 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket = "state-yace"
-    key    = "azure/azure_function/terraform.tfstate"
-    region = "eu-west-3"
-  }
+  backend "s3" {}
 }
 
 provider "azurerm" {
   features {}
-  subscription_id = "249471bf-b8ae-4c8a-abf4-f9e67509e192"
+  subscription_id = var.subscription_id
 }

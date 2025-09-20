@@ -8,20 +8,37 @@ from datetime import datetime
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-@app.route(route="counter", methods=["GET", "POST"])
+@app.route(route="counter", methods=["GET", "POST", "OPTIONS"])
 def counter(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
-    
+
+    # Gestion des requêtes OPTIONS (CORS preflight)
+    if req.method == "OPTIONS":
+        return func.HttpResponse(
+            "",
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type"
+            }
+        )
+
     try:
         # Configuration Cosmos DB
         endpoint = os.environ.get('COSMOS_DB_ENDPOINT')
         database_name = os.environ.get('COSMOS_DB_DATABASE')
         container_name = os.environ.get('COSMOS_DB_CONTAINER')
         use_managed_identity = os.environ.get('COSMOS_DB_USE_MANAGED_IDENTITY', 'false').lower() == 'true'
-        
+
         if not all([endpoint, database_name, container_name]):
-            return func.HttpResponse("Configuration Cosmos DB manquante", status_code=500)
-        
+            return func.HttpResponse(
+                json.dumps({"error": "Configuration Cosmos DB manquante"}),
+                status_code=500,
+                mimetype="application/json",
+                headers=get_cors_headers()
+            )
+
         # Authentification sécurisée avec Managed Identity
         if use_managed_identity:
             # Utilise l'identité de la Function App (comme IAM role AWS)
@@ -32,24 +49,42 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
             # Fallback : utilise la clé (moins sécurisé)
             key = os.environ.get('COSMOS_DB_KEY')
             if not key:
-                return func.HttpResponse("Clé Cosmos DB manquante", status_code=500)
+                return func.HttpResponse(
+                    json.dumps({"error": "Clé Cosmos DB manquante"}),
+                    status_code=500,
+                    mimetype="application/json",
+                    headers=get_cors_headers()
+                )
             client = CosmosClient(endpoint, key)
             logging.info("⚠️ Authentification via clé primaire")
-        
+
         # Le reste du code reste identique...
         database = client.get_database_client(database_name)
         container = database.get_container_client(container_name)
-        
+
         counter_id = "main-counter"
-        
+
         if req.method == "GET":
             return handle_get_request(container, counter_id)
         elif req.method == "POST":
             return handle_post_request(req, container, counter_id)
-            
+
     except Exception as e:
         logging.error(f"Erreur générale: {str(e)}")
-        return func.HttpResponse(f"Erreur: {str(e)}", status_code=500)
+        return func.HttpResponse(
+            json.dumps({"error": f"Erreur: {str(e)}"}),
+            status_code=500,
+            mimetype="application/json",
+            headers=get_cors_headers()
+        )
+
+def get_cors_headers():
+    """Retourne les headers CORS standard"""
+    return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
 
 def get_or_create_counter(container, counter_id):
     """Récupère ou crée le document compteur"""
@@ -77,107 +112,28 @@ def update_counter(container, counter_id, new_value):
     return counter_doc
 
 def handle_get_request(container, counter_id):
-    """Gère les requêtes GET - Affiche l'interface du compteur"""
-    counter_doc = get_or_create_counter(container, counter_id)
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Compteur Azure Function</title>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                max-width: 600px;
-                margin: 50px auto;
-                text-align: center;
-                background-color: #f0f2f5;
-            }}
-            .counter-container {{
-                background: white;
-                border-radius: 10px;
-                padding: 30px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }}
-            .counter-value {{
-                font-size: 4em;
-                font-weight: bold;
-                color: #0078d4;
-                margin: 20px 0;
-            }}
-            .button {{
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 15px 30px;
-                margin: 10px;
-                font-size: 1.2em;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-            }}
-            .button:hover {{
-                background-color: #106ebe;
-            }}
-            .button.danger {{
-                background-color: #d13438;
-            }}
-            .button.danger:hover {{
-                background-color: #a4262c;
-            }}
-            .info {{
-                margin-top: 20px;
-                color: #666;
-                font-size: 0.9em;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="counter-container">
-            <h1>🔢 Compteur Azure Function</h1>
-            <div class="counter-value">{counter_doc['value']}</div>
-            
-            <div>
-                <button class="button" onclick="updateCounter('increment')">➕ Incrémenter</button>
-                <button class="button" onclick="updateCounter('decrement')">➖ Décrémenter</button>
-                <button class="button danger" onclick="updateCounter('reset')">🔄 Reset</button>
-            </div>
-            
-            <div class="info">
-                <p>Dernière mise à jour: {counter_doc['last_updated']}</p>
-                <p>Stocké dans Cosmos DB ☁️</p>
-            </div>
-        </div>
+    """Gère les requêtes GET - Retourne les données JSON du compteur"""
+    try:
+        counter_doc = get_or_create_counter(container, counter_id)
 
-        <script>
-            async function updateCounter(action) {{
-                try {{
-                    const response = await fetch(window.location.href, {{
-                        method: 'POST',
-                        headers: {{
-                            'Content-Type': 'application/json',
-                        }},
-                        body: JSON.stringify({{ action: action }})
-                    }});
-                    
-                    if (response.ok) {{
-                        location.reload();
-                    }} else {{
-                        alert('Erreur lors de la mise à jour du compteur');
-                    }}
-                }} catch (error) {{
-                    console.error('Erreur:', error);
-                    alert('Erreur de connexion');
-                }}
-            }}
-        </script>
-    </body>
-    </html>
-    """
-    
-    return func.HttpResponse(html_content, mimetype="text/html")
+        # Retourne du JSON au lieu de HTML
+        return func.HttpResponse(
+            json.dumps({
+                "value": counter_doc['value'],
+                "last_updated": counter_doc['last_updated'],
+                "created_at": counter_doc['created_at']
+            }),
+            mimetype="application/json",
+            headers=get_cors_headers()
+        )
+    except Exception as e:
+        logging.error(f"Erreur GET: {str(e)}")
+        return func.HttpResponse(
+            json.dumps({"error": f"Erreur lors de la récupération: {str(e)}"}),
+            status_code=500,
+            mimetype="application/json",
+            headers=get_cors_headers()
+        )
 
 def handle_post_request(req, container, counter_id):
     """Gère les requêtes POST - Actions sur le compteur"""
@@ -185,14 +141,19 @@ def handle_post_request(req, container, counter_id):
         # Parser le JSON de la requête
         req_body = req.get_json()
         action = req_body.get('action') if req_body else None
-        
+
         if not action:
-            return func.HttpResponse("Action manquante", status_code=400)
-        
+            return func.HttpResponse(
+                json.dumps({"error": "Action manquante"}),
+                status_code=400,
+                mimetype="application/json",
+                headers=get_cors_headers()
+            )
+
         # Récupérer le compteur actuel
         counter_doc = get_or_create_counter(container, counter_id)
         current_value = counter_doc['value']
-        
+
         # Traiter l'action
         if action == 'increment':
             new_value = current_value + 1
@@ -201,11 +162,16 @@ def handle_post_request(req, container, counter_id):
         elif action == 'reset':
             new_value = 0
         else:
-            return func.HttpResponse("Action non valide", status_code=400)
-        
+            return func.HttpResponse(
+                json.dumps({"error": "Action non valide"}),
+                status_code=400,
+                mimetype="application/json",
+                headers=get_cors_headers()
+            )
+
         # Mettre à jour dans Cosmos DB
         updated_doc = update_counter(container, counter_id, new_value)
-        
+
         return func.HttpResponse(
             json.dumps({
                 "success": True,
@@ -214,9 +180,15 @@ def handle_post_request(req, container, counter_id):
                 "new_value": new_value,
                 "timestamp": updated_doc["last_updated"]
             }),
-            mimetype="application/json"
+            mimetype="application/json",
+            headers=get_cors_headers()
         )
-        
+
     except Exception as e:
         logging.error(f"Erreur POST: {str(e)}")
-        return func.HttpResponse(f"Erreur: {str(e)}", status_code=500)
+        return func.HttpResponse(
+            json.dumps({"error": f"Erreur: {str(e)}"}),
+            status_code=500,
+            mimetype="application/json",
+            headers=get_cors_headers()
+        )

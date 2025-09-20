@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compteur Azure Function</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <div class="counter-container">
+            <h1>🔢 Compteur Azure Function</h1>
+            <p class="subtitle">Hébergé sur Azure Storage + Cosmos DB</p>
+
+            <div class="counter-display">
+                <div id="counter-value" class="counter-value">Chargement...</div>
+            </div>
+
+            <div class="buttons">
+                <button id="increment" class="button primary" onclick="updateCounter('increment')">
+                    ➕ Incrémenter
+                </button>
+                <button id="decrement" class="button primary" onclick="updateCounter('decrement')">
+                    ➖ Décrémenter
+                </button>
+                <button id="reset" class="button danger" onclick="updateCounter('reset')">
+                    🔄 Reset
+                </button>
+            </div>
+
+            <div class="info">
+                <p class="last-updated">
+                    <strong>Dernière mise à jour:</strong>
+                    <span id="last-updated">-</span>
+                </p>
+                <div class="tech-stack">
+                    <span class="tech-badge">⚡ Azure Functions</span>
+                    <span class="tech-badge">🗄️ Cosmos DB</span>
+                    <span class="tech-badge">☁️ Azure Storage</span>
+                    <span class="tech-badge">🏗️ Terraform</span>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p>Déployé avec 💙 sur Microsoft Azure</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
