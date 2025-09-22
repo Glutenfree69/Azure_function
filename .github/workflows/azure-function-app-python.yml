@@ -1,3 +1,86 @@
+# # This workflow will build a Python app and deploy it to an Azure Functions App on Linux when a commit is pushed to your default branch.
+# #
+# # This workflow assumes you have already created the target Azure Functions app.
+# # For instructions see https://learn.microsoft.com/en-us/azure/azure-functions/create-first-function-vs-code-python?pivots=python-mode-configuration
+# #
+# # To configure this workflow:
+# # 1. Set up the following secrets in your repository:
+# #   - AZURE_FUNCTIONAPP_PUBLISH_PROFILE
+# # 2. Change env variables for your configuration.
+# #
+# # For more information on:
+# #   - GitHub Actions for Azure: https://github.com/Azure/Actions
+# #   - Azure Functions Action: https://github.com/Azure/functions-action
+# #   - Publish Profile: https://github.com/Azure/functions-action#using-publish-profile-as-deployment-credential-recommended
+# #   - Azure Service Principal for RBAC: https://github.com/Azure/functions-action#using-azure-service-principal-for-rbac-as-deployment-credential
+# #
+# # For more samples to get started with GitHub Action workflows to deploy to Azure: https://github.com/Azure/actions-workflow-samples/tree/master/FunctionApp
+
+# name: Deploy Python project to Azure Function App
+
+# on:
+#   push:
+#     branches: ["main" ,"je_lis_la_doc_zzzz"]
+
+# env:
+#   AZURE_FUNCTIONAPP_NAME: 'vladimirpoutine69'   # set this to your function app name on Azure
+#   AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'       # set this to the path to your function app project, defaults to the repository root
+#   PYTHON_VERSION: '3.11'                     # set this to the python version to use (e.g. '3.6', '3.7', '3.8')
+
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
+#     environment: dev
+#     steps:
+#     - name: 'Checkout GitHub Action'
+#       uses: actions/checkout@v4
+
+#     # If you want to use Azure RBAC instead of Publish Profile, then uncomment the task below
+#     - name: 'Login via Azure CLI'
+#       uses: azure/login@v2
+#       with:
+#         creds: ${{ secrets.AZURE_RBAC_CREDENTIALS }} # set up AZURE_RBAC_CREDENTIALS secrets in your repository
+
+#     - name: Setup Python ${{ env.PYTHON_VERSION }} Environment
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ env.PYTHON_VERSION }}
+
+#     - name: 'Resolve Project Dependencies Using Pip'
+#       shell: bash
+#       run: |
+#         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+#         python -m pip install --upgrade pip
+#         pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+#         popd
+
+#     - name: 'Create deployment package'
+#       shell: bash
+#       run: |
+#         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+#         zip -r function-app.zip . \
+#           -x "*.git*" "__pycache__/*" "*.pyc" "venv/*" ".env*" "local.settings.json"
+#         popd
+
+#         echo "ZIP package created:"
+#         ls -la function-app.zip
+
+#     - name: 'Deploy to Azure Functions'
+#       shell: bash
+#       run: |
+#         echo "Getting resource group for function app..."
+#         RG_NAME="rg-vladimirpoutine69"
+#         echo "Resource group: $RG_NAME"
+
+#         echo "Starting deployment..."
+#         az functionapp deployment source config-zip \
+#           --resource-group $RG_NAME \
+#           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
+#           --src function-app.zip \
+#           --build-remote \
+#           --timeout 300
+
+
 # This workflow will build a Python app and deploy it to an Azure Functions App on Linux when a commit is pushed to your default branch.
 #
 # This workflow assumes you have already created the target Azure Functions app.
@@ -41,6 +124,43 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_RBAC_CREDENTIALS }} # set up AZURE_RBAC_CREDENTIALS secrets in your repository
 
+    - name: 'Verify project structure'
+      shell: bash
+      run: |
+        echo "=== PROJECT STRUCTURE VERIFICATION ==="
+        echo "Current directory:"
+        pwd
+        echo ""
+        echo "Directory listing:"
+        ls -la
+        echo ""
+        echo "Checking required files:"
+        if [ -f "function_app.py" ]; then
+          echo "✅ function_app.py found"
+        else
+          echo "❌ function_app.py NOT found"
+        fi
+
+        if [ -f "requirements.txt" ]; then
+          echo "✅ requirements.txt found"
+          echo "Contents:"
+          cat requirements.txt
+        else
+          echo "❌ requirements.txt NOT found"
+        fi
+
+        if [ -f "host.json" ]; then
+          echo "✅ host.json found"
+          echo "Contents:"
+          cat host.json
+        else
+          echo "❌ host.json NOT found"
+        fi
+
+        echo ""
+        echo "Python file syntax check:"
+        python -m py_compile function_app.py || echo "❌ Syntax error in function_app.py"
+
     - name: Setup Python ${{ env.PYTHON_VERSION }} Environment
       uses: actions/setup-python@v4
       with:
@@ -49,33 +169,193 @@ jobs:
     - name: 'Resolve Project Dependencies Using Pip'
       shell: bash
       run: |
+        echo "=== DEPENDENCY INSTALLATION ==="
         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+        echo "Python version:"
+        python --version
+        echo ""
+        echo "Pip version:"
+        pip --version
+        echo ""
+        echo "Installing dependencies..."
         python -m pip install --upgrade pip
-        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-        popd
+        pip install -r requirements.txt --target=".python_packages/lib/site-packages" --verbose
+        echo ""
+        echo "Installed packages:"
+        ls -la .python_packages/lib/site-packages/
+        echo ""
+        echo "Testing imports locally:"
+        python -c "
+        import azure.functions as func
+        import json
+        import os
+        from azure.cosmos import CosmosClient, exceptions
+        from azure.identity import DefaultAzureCredential
+        import logging
+        from datetime import datetime
+        print('✅ All imports successful')
+                " || echo "❌ Import error detected"
+                popd
+
+    - name: 'Verify Azure Function App exists'
+      shell: bash
+      run: |
+        echo "=== AZURE FUNCTION APP VERIFICATION ==="
+        RG_NAME="rg-vladimirpoutine69"
+
+        echo "Checking if Function App exists..."
+        FUNCTION_EXISTS=$(az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "name" -o tsv 2>/dev/null || echo "NOT_FOUND")
+
+        if [ "$FUNCTION_EXISTS" = "NOT_FOUND" ]; then
+          echo "❌ Function App not found! Please check:"
+          echo "   - Function App name: ${{ env.AZURE_FUNCTIONAPP_NAME }}"
+          echo "   - Resource Group: $RG_NAME"
+          echo ""
+          echo "Available Function Apps in resource group:"
+          az functionapp list --resource-group $RG_NAME --query "[].name" -o table || echo "No Function Apps found"
+          exit 1
+        else
+          echo "✅ Function App found: $FUNCTION_EXISTS"
+        fi
+
+        echo ""
+        echo "Function App details:"
+        az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "{Name:name, State:state, RuntimeVersion:siteConfig.linuxFxVersion, Kind:kind}" -o table
+
+        echo ""
+        echo "Current app settings:"
+        az functionapp config appsettings list --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "[?name=='FUNCTIONS_WORKER_RUNTIME' || name=='WEBSITE_PYTHON_VERSION' || name=='COSMOS_DB_ENDPOINT']" -o table
 
     - name: 'Create deployment package'
       shell: bash
       run: |
+        echo "=== DEPLOYMENT PACKAGE CREATION ==="
         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+
+        echo "Files to be packaged:"
+        find . -type f ! -path "./.git*" ! -path "./__pycache__/*" ! -name "*.pyc" ! -path "./venv/*" ! -name ".env*" ! -name "local.settings.json"
+
+        echo ""
+        echo "Creating ZIP package..."
         zip -r function-app.zip . \
-          -x "*.git*" "__pycache__/*" "*.pyc" "venv/*" ".env*" "local.settings.json"
+          -x "*.git*" "__pycache__/*" "*.pyc" "venv/*" ".env*" "local.settings.json" \
+          -v
         popd
 
+        echo ""
         echo "ZIP package created:"
         ls -la function-app.zip
+
+        echo ""
+        echo "ZIP contents:"
+        unzip -l function-app.zip
 
     - name: 'Deploy to Azure Functions'
       shell: bash
       run: |
-        echo "Getting resource group for function app..."
-        RG_NAME="rg-vladimirpoutine69" 
+        echo "=== AZURE FUNCTIONS DEPLOYMENT ==="
+        RG_NAME="rg-vladimirpoutine69"
         echo "Resource group: $RG_NAME"
-        
-        echo "Starting deployment..."
-        az functionapp deployment source config-zip \
+        echo "Function App: ${{ env.AZURE_FUNCTIONAPP_NAME }}"
+
+        echo ""
+        echo "Pre-deployment function list:"
+        az functionapp function list --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "[].name" -o table || echo "No functions found yet"
+
+        echo ""
+        echo "Starting deployment with verbose logging..."
+        DEPLOYMENT_OUTPUT=$(az functionapp deployment source config-zip \
           --resource-group $RG_NAME \
           --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
           --src function-app.zip \
           --build-remote \
-          --timeout 300
+          --timeout 300 \
+          --verbose 2>&1)
+
+        echo "Deployment output:"
+        echo "$DEPLOYMENT_OUTPUT"
+
+        if echo "$DEPLOYMENT_OUTPUT" | grep -i "error\|failed\|exception"; then
+          echo "❌ Deployment may have failed - check logs above"
+        else
+          echo "✅ Deployment command completed"
+        fi
+
+    - name: 'Post-deployment verification'
+      shell: bash
+      run: |
+        echo "=== POST-DEPLOYMENT VERIFICATION ==="
+        RG_NAME="rg-vladimirpoutine69"
+
+        echo "Waiting for deployment to propagate..."
+        sleep 60
+
+        echo ""
+        echo "Function App status:"
+        az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "{Name:name, State:state, DefaultHostName:defaultHostName}" -o table
+
+        echo ""
+        echo "Deployed functions:"
+        FUNCTIONS_LIST=$(az functionapp function list --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "[].{Name:name, Status:config.disabled}" -o table 2>/dev/null)
+
+        if [ -z "$FUNCTIONS_LIST" ] || echo "$FUNCTIONS_LIST" | grep -q "No functions"; then
+          echo "❌ NO FUNCTIONS DEPLOYED!"
+        else
+          echo "✅ Functions found:"
+          echo "$FUNCTIONS_LIST"
+        fi
+
+        echo ""
+        echo "Function App logs (last 30 seconds):"
+        timeout 30s az webapp log tail --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME 2>/dev/null || echo "Could not retrieve logs"
+
+    - name: 'Test function endpoint'
+      shell: bash
+      run: |
+        echo "=== ENDPOINT TESTING ==="
+        FUNCTION_URL="https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net/api/counter"
+        echo "Testing endpoint: $FUNCTION_URL"
+
+        echo ""
+        echo "Testing GET request:"
+        GET_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" -X GET "$FUNCTION_URL" -H "Content-Type: application/json" 2>/dev/null || echo "CURL_ERROR")
+
+        if echo "$GET_RESPONSE" | grep -q "CURL_ERROR"; then
+          echo "❌ Could not connect to function"
+        elif echo "$GET_RESPONSE" | grep -q "HTTP_CODE:200"; then
+          echo "✅ Function responding with 200"
+          echo "Response: $(echo "$GET_RESPONSE" | sed 's/HTTP_CODE:[0-9]*//')"
+        elif echo "$GET_RESPONSE" | grep -q "HTTP_CODE:404"; then
+          echo "❌ Function not found (404) - deployment issue"
+        else
+          echo "⚠️ Function responding with non-200 status"
+          echo "Response: $GET_RESPONSE"
+        fi
+
+        echo ""
+        echo "Testing OPTIONS request (CORS):"
+        OPTIONS_RESPONSE=$(curl -s -w "HTTP_CODE:%{http_code}" -X OPTIONS "$FUNCTION_URL" 2>/dev/null || echo "CURL_ERROR")
+        echo "OPTIONS Response: $OPTIONS_RESPONSE"
+
+    - name: 'Detailed diagnostics on failure'
+      shell: bash
+      if: failure()
+      run: |
+        echo "=== FAILURE DIAGNOSTICS ==="
+        RG_NAME="rg-vladimirpoutine69"
+
+        echo "Function App detailed info:"
+        az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "{name:name, state:state, kind:kind, enabled:enabled, runtime:siteConfig.linuxFxVersion, appSettings:siteConfig.appSettings}" -o json
+
+        echo ""
+        echo "Recent deployment logs:"
+        az webapp deployment list --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "[0]" -o json || echo "No deployment info"
+
+        echo ""
+        echo "Application logs (extended):"
+        timeout 60s az webapp log tail --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME || echo "Could not retrieve extended logs"
+
+        echo ""
+        echo "Kudu deployment logs:"
+        KUDU_URL="https://${{ env.AZURE_FUNCTIONAPP_NAME }}.scm.azurewebsites.net/api/deployments"
+        echo "Check Kudu logs at: $KUDU_URL"
