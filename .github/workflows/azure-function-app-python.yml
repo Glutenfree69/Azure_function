@@ -124,43 +124,6 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_RBAC_CREDENTIALS }} # set up AZURE_RBAC_CREDENTIALS secrets in your repository
 
-    - name: 'Verify project structure'
-      shell: bash
-      run: |
-        echo "=== PROJECT STRUCTURE VERIFICATION ==="
-        echo "Current directory:"
-        pwd
-        echo ""
-        echo "Directory listing:"
-        ls -la
-        echo ""
-        echo "Checking required files:"
-        if [ -f "function_app.py" ]; then
-          echo "✅ function_app.py found"
-        else
-          echo "❌ function_app.py NOT found"
-        fi
-
-        if [ -f "requirements.txt" ]; then
-          echo "✅ requirements.txt found"
-          echo "Contents:"
-          cat requirements.txt
-        else
-          echo "❌ requirements.txt NOT found"
-        fi
-
-        if [ -f "host.json" ]; then
-          echo "✅ host.json found"
-          echo "Contents:"
-          cat host.json
-        else
-          echo "❌ host.json NOT found"
-        fi
-
-        echo ""
-        echo "Python file syntax check:"
-        python -m py_compile function_app.py || echo "❌ Syntax error in function_app.py"
-
     - name: Setup Python ${{ env.PYTHON_VERSION }} Environment
       uses: actions/setup-python@v4
       with:
@@ -196,35 +159,6 @@ jobs:
         print('✅ All imports successful')
                 " || echo "❌ Import error detected"
                 popd
-
-    - name: 'Verify Azure Function App exists'
-      shell: bash
-      run: |
-        echo "=== AZURE FUNCTION APP VERIFICATION ==="
-        RG_NAME="rg-vladimirpoutine69"
-
-        echo "Checking if Function App exists..."
-        FUNCTION_EXISTS=$(az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "name" -o tsv 2>/dev/null || echo "NOT_FOUND")
-
-        if [ "$FUNCTION_EXISTS" = "NOT_FOUND" ]; then
-          echo "❌ Function App not found! Please check:"
-          echo "   - Function App name: ${{ env.AZURE_FUNCTIONAPP_NAME }}"
-          echo "   - Resource Group: $RG_NAME"
-          echo ""
-          echo "Available Function Apps in resource group:"
-          az functionapp list --resource-group $RG_NAME --query "[].name" -o table || echo "No Function Apps found"
-          exit 1
-        else
-          echo "✅ Function App found: $FUNCTION_EXISTS"
-        fi
-
-        echo ""
-        echo "Function App details:"
-        az functionapp show --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "{Name:name, State:state, RuntimeVersion:siteConfig.linuxFxVersion, Kind:kind}" -o table
-
-        echo ""
-        echo "Current app settings:"
-        az functionapp config appsettings list --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $RG_NAME --query "[?name=='FUNCTIONS_WORKER_RUNTIME' || name=='WEBSITE_PYTHON_VERSION' || name=='COSMOS_DB_ENDPOINT']" -o table
 
     - name: 'Create deployment package'
       shell: bash

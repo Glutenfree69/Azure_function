@@ -6,7 +6,7 @@ from azure.identity import DefaultAzureCredential
 import logging
 from datetime import datetime
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 @app.route(route="counter", methods=["GET", "POST", "OPTIONS"])
 def counter(req: func.HttpRequest) -> func.HttpResponse:
