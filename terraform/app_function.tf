@@ -71,8 +71,9 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
 
     cors {
       allowed_origins = [
-        azurerm_storage_account.static_website.primary_web_endpoint,
-        "https://portal.azure.com"
+        # azurerm_storage_account.static_website.primary_web_endpoint,
+        # "https://portal.azure.com"
+        "*"
       ]
       support_credentials = false
     }

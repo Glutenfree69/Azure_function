@@ -209,12 +209,6 @@ jobs:
         echo "Deployment output:"
         echo "$DEPLOYMENT_OUTPUT"
 
-        if echo "$DEPLOYMENT_OUTPUT" | grep -i "error\|failed\|exception"; then
-          echo "❌ Deployment may have failed - check logs above"
-        else
-          echo "✅ Deployment command completed"
-        fi
-
     - name: 'Post-deployment verification'
       shell: bash
       run: |
