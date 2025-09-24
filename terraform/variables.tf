@@ -28,6 +28,11 @@ variable "sa_name" {
   type        = string
 }
 
+variable "sa_staticweb_name" {
+  description = "The name of the static web storage account. If blank, a random name will be generated."
+  type        = string
+}
+
 variable "ws_name" {
   description = "The name of the Log Analytics workspace. If blank, a random name will be generated."
   type        = string

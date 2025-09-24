@@ -1,11 +1,12 @@
 github_actions_object_id = "61d850ea-a0df-410f-9c58-99ef8b77ecac"
-subscription_id = "249471bf-b8ae-4c8a-abf4-f9e67509e192"
+subscription_id          = "249471bf-b8ae-4c8a-abf4-f9e67509e192"
 
 resource_group_name         = "vladimirpoutine69"
 resource_group_location     = "francecentral"
 sa_account_tier             = "Standard"
 sa_account_replication_type = "LRS"
 sa_name                     = "vladimirpoutine69"
+sa_staticweb_name           = "vladimirpoutine69"
 ws_name                     = "vladimirpoutine69"
 ai_name                     = "vladimirpoutine69"
 asp_name                    = "vladimirpoutine69"
