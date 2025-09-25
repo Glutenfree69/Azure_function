@@ -4,25 +4,13 @@ import os
 from azure.cosmos import CosmosClient, exceptions
 from azure.identity import DefaultAzureCredential
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
-@app.route(route="counter", methods=["GET", "POST", "OPTIONS"])
+@app.route(route="counter", methods=["GET", "POST"])
 def counter(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
-
-    # Gestion des requêtes OPTIONS (CORS preflight)
-    if req.method == "OPTIONS":
-        return func.HttpResponse(
-            "",
-            status_code=200,
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type"
-            }
-        )
 
     try:
         # Configuration Cosmos DB
@@ -34,8 +22,7 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Configuration Cosmos DB manquante"}),
                 status_code=500,
-                mimetype="application/json",
-                headers=get_cors_headers()
+                mimetype="application/json"
             )
 
         # Authentification sécurisée avec Managed Identity
@@ -59,17 +46,8 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps({"error": f"Erreur: {str(e)}"}),
             status_code=500,
-            mimetype="application/json",
-            headers=get_cors_headers()
+            mimetype="application/json"
         )
-
-def get_cors_headers():
-    """Retourne les headers CORS standard"""
-    return {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-    }
 
 def get_or_create_counter(container, counter_id):
     """Récupère ou crée le document compteur"""
@@ -79,11 +57,12 @@ def get_or_create_counter(container, counter_id):
         return counter_doc
     except exceptions.CosmosResourceNotFoundError:
         # Si le compteur n'existe pas, le créer
+        current_time = datetime.now(timezone.utc).isoformat()
         counter_doc = {
             "id": counter_id,
             "value": 0,
-            "created_at": datetime.utcnow().isoformat(),
-            "last_updated": datetime.utcnow().isoformat()
+            "created_at": current_time,
+            "last_updated": current_time
         }
         container.create_item(body=counter_doc)
         return counter_doc
@@ -92,7 +71,7 @@ def update_counter(container, counter_id, new_value):
     """Met à jour la valeur du compteur"""
     counter_doc = container.read_item(item=counter_id, partition_key=counter_id)
     counter_doc["value"] = new_value
-    counter_doc["last_updated"] = datetime.utcnow().isoformat()
+    counter_doc["last_updated"] = datetime.now(timezone.utc).isoformat()
     container.replace_item(item=counter_id, body=counter_doc)
     return counter_doc
 
@@ -101,23 +80,20 @@ def handle_get_request(container, counter_id):
     try:
         counter_doc = get_or_create_counter(container, counter_id)
 
-        # Retourne du JSON au lieu de HTML
         return func.HttpResponse(
             json.dumps({
                 "value": counter_doc['value'],
                 "last_updated": counter_doc['last_updated'],
                 "created_at": counter_doc['created_at']
             }),
-            mimetype="application/json",
-            headers=get_cors_headers()
+            mimetype="application/json"
         )
     except Exception as e:
         logging.error(f"Erreur GET: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": f"Erreur lors de la récupération: {str(e)}"}),
             status_code=500,
-            mimetype="application/json",
-            headers=get_cors_headers()
+            mimetype="application/json"
         )
 
 def handle_post_request(req, container, counter_id):
@@ -131,8 +107,7 @@ def handle_post_request(req, container, counter_id):
             return func.HttpResponse(
                 json.dumps({"error": "Action manquante"}),
                 status_code=400,
-                mimetype="application/json",
-                headers=get_cors_headers()
+                mimetype="application/json"
             )
 
         # Récupérer le compteur actuel
@@ -150,8 +125,7 @@ def handle_post_request(req, container, counter_id):
             return func.HttpResponse(
                 json.dumps({"error": "Action non valide"}),
                 status_code=400,
-                mimetype="application/json",
-                headers=get_cors_headers()
+                mimetype="application/json"
             )
 
         # Mettre à jour dans Cosmos DB
@@ -165,8 +139,7 @@ def handle_post_request(req, container, counter_id):
                 "new_value": new_value,
                 "timestamp": updated_doc["last_updated"]
             }),
-            mimetype="application/json",
-            headers=get_cors_headers()
+            mimetype="application/json"
         )
 
     except Exception as e:
@@ -174,6 +147,5 @@ def handle_post_request(req, container, counter_id):
         return func.HttpResponse(
             json.dumps({"error": f"Erreur: {str(e)}"}),
             status_code=500,
-            mimetype="application/json",
-            headers=get_cors_headers()
+            mimetype="application/json"
         )
