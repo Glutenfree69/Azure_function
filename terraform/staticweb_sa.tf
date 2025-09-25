@@ -37,7 +37,6 @@ resource "azurerm_storage_blob" "script_js" {
   type                   = "Block"
   content_type           = "application/javascript"
 
-  # Utilise le template avec l'URL de la Function App
   source_content = templatefile("${path.module}/../website/script.js.tpl", {
     function_app_url = "https://${azurerm_linux_function_app.vladimirpoutine69.default_hostname}"
   })
@@ -47,7 +46,7 @@ resource "azurerm_storage_blob" "script_js" {
 resource "azurerm_storage_blob" "website_files" {
   for_each = toset([
     for file in fileset("${path.module}/../website", "*") : file
-    if file != "script.js.tpl"
+    if file != "script.js.tpl" && file != "staticwebapp.config.json"
   ])
 
   name                   = each.value
@@ -60,4 +59,17 @@ resource "azurerm_storage_blob" "website_files" {
     "html" = "text/html"
     "css"  = "text/css"
   }, split(".", each.value)[length(split(".", each.value)) - 1], "application/octet-stream")
+}
+
+# Ajout du fichier de configuration d'authentification
+resource "azurerm_storage_blob" "static_config" {
+  name                   = "staticwebapp.config.json"
+  storage_account_name   = azurerm_storage_account.static_website.name
+  storage_container_name = "$web"
+  type                   = "Block"
+  content_type           = "application/json"
+
+  source_content = templatefile("${path.module}/../website/staticwebapp.config.json", {
+    tenant_id = var.tenant_id
+  })
 }

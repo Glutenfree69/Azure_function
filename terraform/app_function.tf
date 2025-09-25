@@ -50,53 +50,57 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
   location            = azurerm_resource_group.vladimirpoutine69.location
   service_plan_id     = azurerm_service_plan.vladimirpoutine69.id
 
-  # Storage configuration
   storage_account_name       = azurerm_storage_account.vladimirpoutine69.name
   storage_account_access_key = azurerm_storage_account.vladimirpoutine69.primary_access_key
 
-  # MANAGED IDENTITY ENABLE SANS PERMISSION INITIALE
   identity {
     type = "SystemAssigned"
   }
 
   site_config {
-    # Configuration pour Application Insights
     application_insights_connection_string = azurerm_application_insights.vladimirpoutine69.connection_string
     application_insights_key               = azurerm_application_insights.vladimirpoutine69.instrumentation_key
 
-    # Python configuration (ADDED: Required for Consumption plan)
     application_stack {
       python_version = var.runtime_version
     }
 
     cors {
-      allowed_origins = [
-        # azurerm_storage_account.static_website.primary_web_endpoint,
-        # "https://portal.azure.com"
-        "*"
-      ]
+      allowed_origins     = ["*"]
       support_credentials = false
     }
   }
 
-  # App settings - These will work properly with Consumption plan!
-  app_settings = {
-    # Cosmos DB settings
-    "COSMOS_DB_ENDPOINT" = azurerm_cosmosdb_account.counter_db.endpoint
-    # "COSMOS_DB_KEY"       = azurerm_cosmosdb_account.counter_db.primary_key
-    "COSMOS_DB_DATABASE"  = azurerm_cosmosdb_sql_database.counter_database.name
-    "COSMOS_DB_CONTAINER" = azurerm_cosmosdb_sql_container.counter_container.name
+  # ✅ NOUVEAU : Configuration d'authentification Entra ID
+  auth_settings_v2 {
+    auth_enabled           = true
+    require_authentication = true
+    unauthenticated_action = "Return401"
+    default_provider       = "azureactivedirectory"
 
-    "COSMOS_DB_USE_MANAGED_IDENTITY" = "true"
+    login {
+      logout_endpoint = "/.auth/logout"
+    }
+
+    active_directory_v2 {
+      client_id                  = var.entra_client_id
+      tenant_auth_endpoint       = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
+      client_secret_setting_name = "ENTRA_CLIENT_SECRET"
+      allowed_audiences = [
+        "api://${var.entra_client_id}"
+      ]
+    }
   }
 
-  # Dependencies
-  # depends_on = [
-  #   azurerm_cosmosdb_sql_container.counter_container,
-  #   azurerm_cosmosdb_sql_database.counter_database,
-  #   azurerm_cosmosdb_account.counter_db
-  # ]
+  app_settings = {
+    "COSMOS_DB_ENDPOINT"             = azurerm_cosmosdb_account.counter_db.endpoint
+    "COSMOS_DB_DATABASE"             = azurerm_cosmosdb_sql_database.counter_database.name
+    "COSMOS_DB_CONTAINER"            = azurerm_cosmosdb_sql_container.counter_container.name
+    "COSMOS_DB_USE_MANAGED_IDENTITY" = "true"
 
+    # ✅ NOUVEAU : Configuration Entra ID
+    "ENTRA_CLIENT_SECRET" = var.entra_client_secret
+  }
   lifecycle {
     ignore_changes = [tags]
   }

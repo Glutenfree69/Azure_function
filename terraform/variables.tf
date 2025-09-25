@@ -73,3 +73,23 @@ variable "cosmos_account_name" {
   description = "Name of the Cosmos DB account (if null, will be generated)"
   type        = string
 }
+
+# Variables pour la configuration Entra ID
+
+variable "tenant_id" {
+  description = "Tenant ID Azure/Entra ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "entra_client_id" {
+  description = "Client ID de l'application Entra ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "entra_client_secret" {
+  description = "Client Secret de l'application Entra ID"
+  type        = string
+  sensitive   = true
+}

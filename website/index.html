@@ -3,47 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compteur Lacoste tn</title>
+    <title>Compteur Sécurisé - Entra ID</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
 </head>
 <body>
     <div class="container">
-        <div class="counter-container">
-            <h1>🔢 Compteur Lacoste tn</h1>
-            <p class="subtitle">Hébergé sur Azure Storage + Cosmos DB</p>
+        <!-- ✅ NOUVEAU : Section d'authentification -->
+        <div id="user-info" class="user-section">
+            <!-- Contenu géré dynamiquement par JavaScript -->
+        </div>
 
-            <div class="counter-display">
-                <div id="counter-value" class="counter-value">Chargement...</div>
-            </div>
+        <!-- ✅ MODIFIÉ : Contenu de l'application (masqué si non authentifié) -->
+        <div id="app-content" class="app-content" style="display: none;">
+            <div class="counter-container">
+                <h1>🔐 Compteur Sécurisé</h1>
+                <p class="subtitle">Authentifié avec Entra ID</p>
 
-            <div class="buttons">
-                <button id="increment" class="button primary" onclick="updateCounter('increment')">
-                    ➕ Incrémenter
-                </button>
-                <button id="decrement" class="button primary" onclick="updateCounter('decrement')">
-                    ➖ Décrémenter
-                </button>
-                <button id="reset" class="button danger" onclick="updateCounter('reset')">
-                    🔄 Reset
-                </button>
-            </div>
-
-            <div class="info">
-                <p class="last-updated">
-                    <strong>Dernière mise à jour:</strong>
-                    <span id="last-updated">-</span>
-                </p>
-                <div class="tech-stack">
-                    <span class="tech-badge">⚡ Azure Functions</span>
-                    <span class="tech-badge">🗄️ Cosmos DB</span>
-                    <span class="tech-badge">☁️ Azure Storage</span>
-                    <span class="tech-badge">🏗️ Terraform</span>
+                <!-- ✅ NOUVEAU : Utilisateur actuel -->
+                <div class="current-user">
+                    <span>Utilisateur: <strong id="current-user">-</strong></span>
                 </div>
-            </div>
 
-            <div class="footer">
-                <p>Fuck Azure</p>
+                <div class="counter-display">
+                    <div id="counter-value" class="counter-value">Chargement...</div>
+                </div>
+
+                <div class="buttons">
+                    <button id="increment" class="button primary" onclick="updateCounter('increment')">
+                        ➕ +1
+                    </button>
+                    <button id="decrement" class="button primary" onclick="updateCounter('decrement')">
+                        ➖ -1
+                    </button>
+                    <button id="reset" class="button danger" onclick="updateCounter('reset')">
+                        🔄 Reset
+                    </button>
+                </div>
+
+                <!-- ✅ NOUVEAU : Feedback des actions -->
+                <div id="action-feedback" class="feedback" style="display: none;"></div>
+
+                <div class="info">
+                    <p class="last-updated">
+                        <strong>Dernière mise à jour:</strong>
+                        <span id="last-updated">-</span>
+                    </p>
+                    
+                    <!-- ✅ NOUVEAU : Qui a fait la dernière modification -->
+                    <div id="last-user-info" class="last-user-info" style="display: none;">
+                        <p><strong>Dernière modification par:</strong> <span id="last-user">-</span></p>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <p>Compteur sécurisé avec Azure + Entra ID</p>
+                </div>
             </div>
         </div>
     </div>
