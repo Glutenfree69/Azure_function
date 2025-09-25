@@ -12,10 +12,10 @@ resource "azurerm_storage_account" "static_website" {
   account_replication_type = "LRS"
 
   # Enable static website hosting
-  static_website {
-    index_document     = "index.html"
-    error_404_document = "404.html"
-  }
+  # static_website {
+  #   index_document     = "index.html"
+  #   error_404_document = "404.html"
+  # }
 
   blob_properties {
     # CORS pour permettre les appels à ton API Function

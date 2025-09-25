@@ -16,10 +16,6 @@ resource "azurerm_cosmosdb_account" "counter_db" {
     max_interval_in_seconds = 300
     max_staleness_prefix    = 100000
   }
-
-  depends_on = [
-    azurerm_resource_group.vladimirpoutine69
-  ]
 }
 
 # Create Cosmos DB SQL Database
@@ -41,8 +37,7 @@ resource "azurerm_cosmosdb_sql_container" "counter_container" {
   throughput            = 400
 }
 
-# Le data commenté la en dessous fonctionne mais je trouve ca degeulasse et pas maintenable
-# Je préfère créer un rôle custom
+# Le data commenté la en dessous fonctionne mais jempa
 
 # # Utiliser une data source pour récupérer le rôle
 # data "azurerm_cosmosdb_sql_role_definition" "cosmos_db_data_contributor" {

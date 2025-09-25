@@ -29,7 +29,6 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
         endpoint = os.environ.get('COSMOS_DB_ENDPOINT')
         database_name = os.environ.get('COSMOS_DB_DATABASE')
         container_name = os.environ.get('COSMOS_DB_CONTAINER')
-        use_managed_identity = os.environ.get('COSMOS_DB_USE_MANAGED_IDENTITY', 'false').lower() == 'true'
 
         if not all([endpoint, database_name, container_name]):
             return func.HttpResponse(
@@ -40,25 +39,11 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         # Authentification sécurisée avec Managed Identity
-        if use_managed_identity:
-            # Utilise l'identité de la Function App (comme IAM role AWS)
-            credential = DefaultAzureCredential()
-            client = CosmosClient(endpoint, credential)
-            logging.info("✅ Authentification via Managed Identity")
-        else:
-            # Fallback : utilise la clé (moins sécurisé)
-            key = os.environ.get('COSMOS_DB_KEY')
-            if not key:
-                return func.HttpResponse(
-                    json.dumps({"error": "Clé Cosmos DB manquante"}),
-                    status_code=500,
-                    mimetype="application/json",
-                    headers=get_cors_headers()
-                )
-            client = CosmosClient(endpoint, key)
-            logging.info("⚠️ Authentification via clé primaire")
+        credential = DefaultAzureCredential()
+        client = CosmosClient(endpoint, credential)
+        logging.info("✅ Authentification via Managed Identity")
 
-        # Le reste du code reste identique...
+        # Connexion à la base de données et container
         database = client.get_database_client(database_name)
         container = database.get_container_client(container_name)
 

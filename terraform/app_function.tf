@@ -54,7 +54,7 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
   storage_account_name       = azurerm_storage_account.vladimirpoutine69.name
   storage_account_access_key = azurerm_storage_account.vladimirpoutine69.primary_access_key
 
-  # MANAGED IDENTITY (équivalent IAM Role)
+  # MANAGED IDENTITY ENABLE SANS PERMISSION INITIALE
   identity {
     type = "SystemAssigned"
   }
@@ -91,11 +91,11 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
   }
 
   # Dependencies
-  depends_on = [
-    azurerm_cosmosdb_sql_container.counter_container,
-    azurerm_cosmosdb_sql_database.counter_database,
-    azurerm_cosmosdb_account.counter_db
-  ]
+  # depends_on = [
+  #   azurerm_cosmosdb_sql_container.counter_container,
+  #   azurerm_cosmosdb_sql_database.counter_database,
+  #   azurerm_cosmosdb_account.counter_db
+  # ]
 
   lifecycle {
     ignore_changes = [tags]

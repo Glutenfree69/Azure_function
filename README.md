@@ -676,3 +676,23 @@ graph TB
     GH --> FA
     FA --> AI
 ```
+
+```mermaid
+sequenceDiagram
+    participant FA as Function App
+    participant DC as DefaultAzureCredential
+    participant IMDS as Azure IMDS
+    participant EntraID as Entra ID
+    participant Cosmos as Cosmos DB
+    
+    FA->>DC: DefaultAzureCredential()
+    DC->>IMDS: GET http://169.254.169.254/metadata/identity/oauth2/token
+    IMDS->>EntraID: Demande token pour l'identité managée
+    EntraID->>IMDS: JWT token avec claims
+    IMDS->>DC: Token d'accès
+    DC->>FA: Credential object avec token
+    FA->>Cosmos: CosmosClient(endpoint, credential)
+    Cosmos->>EntraID: Validation du token JWT
+    EntraID->>Cosmos: Token valide + rôles RBAC
+    Cosmos->>FA: Connexion autorisée ✅
+    ```
