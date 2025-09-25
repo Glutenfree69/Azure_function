@@ -5,6 +5,7 @@
 - [Vue d'ensemble](#vue-densemble)
 - [Architecture du projet](#architecture-du-projet)
 - [Infrastructure Terraform](#infrastructure-terraform)
+- [Site web statique](#site-web-statique)
 - [GitHub Actions CI/CD](#github-actions-cicd)
 - [Déploiement et sécurité](#déploiement-et-sécurité)
 - [Troubleshooting](#troubleshooting)
@@ -12,12 +13,13 @@
 
 ## Vue d'ensemble
 
-Ce projet déploie une Azure Function App en utilisant Terraform et un pipeline de déploiement automatisé (GitHub Actions). L'architecture utilise le plan **Consumption Plan (Y1)**
+Ce projet déploie une Azure Function App avec un site web statique en utilisant Terraform et un pipeline de déploiement automatisé (GitHub Actions). L'architecture utilise le plan **Consumption Plan (Y1)** pour les fonctions et **Azure Storage Static Website** pour l'interface utilisateur.
 
 ### Technologies utilisées
 
 - **Azure Functions** : Plateforme serverless pour exécuter du code event-driven
 - **Azure Cosmos DB** : Base de données NoSQL pour la persistance des données
+- **Azure Storage Static Website** : Hébergement statique pour l'interface web
 - **Terraform** : Infrastructure as Code pour provisionner les ressources Azure
 - **GitHub Actions** : CI/CD pour automatiser le déploiement
 - **Python 3.11** : Runtime de la fonction
@@ -34,6 +36,7 @@ AZURE_FUNCTION/
 │       └── azure-function-app-python.yml  # Pipeline GitHub Actions
 ├── terraform/
 │   ├── app_function.tf             # Ressources Function App principales
+│   ├── staticweb_sa.tf             # Storage Account pour site web statique
 │   ├── cosmos.tf                   # Ressources Cosmos DB
 │   ├── github.tf                   # Configuration RBAC GitHub Actions
 │   ├── variables.tf                # Variables Terraform
@@ -42,6 +45,10 @@ AZURE_FUNCTION/
 │   ├── random.tf                   # Ressources aléatoires
 │   ├── terraform.tf                # Configuration Terraform
 │   └── terraform.tfvars            # Valeurs des variables
+├── website/
+│   ├── index.html                  # Interface utilisateur principale
+│   ├── style.css                   # Styles CSS responsifs
+│   └── script.js.tpl               # Template JavaScript avec URL dynamique
 ├── function_app.py                 # Code de la fonction principale
 ├── host.json                       # Configuration Azure Functions
 ├── requirements.txt                # Dépendances Python
@@ -61,6 +68,9 @@ graph TD
     F --> G[Deploy ZIP to Function App]
     G --> H[Function App Running]
     H --> I[Cosmos DB Storage]
+    J[Static Website deployed] --> K[User Interface]
+    K --> H
+    H --> L[JSON API Response]
 ```
 
 ## Infrastructure Terraform
@@ -77,7 +87,7 @@ resource "azurerm_resource_group" "vladimirpoutine69" {
 
 **Rôle** : Conteneur logique pour toutes les ressources du projet
 
-#### 2. Storage Account
+#### 2. Storage Account (Function App)
 ```hcl
 resource "azurerm_storage_account" "vladimirpoutine69" {
   name                     = coalesce(var.sa_name, random_string.name.result)
@@ -93,12 +103,45 @@ resource "azurerm_storage_account" "vladimirpoutine69" {
 - Stockage des logs et métadonnées
 - Support pour les triggers et bindings Azure Functions
 
-**Configuration** :
-- Tier : Standard (par défaut)
-- Réplication : LRS (Local Redundant Storage)
-- Accès public activé pour les déploiements
+#### 3. Storage Account (Site Web Statique)
+```hcl
+resource "azurerm_storage_account" "static_website" {
+  name                     = "static${var.sa_staticweb_name}"
+  resource_group_name      = azurerm_resource_group.vladimirpoutine69.name
+  location                 = azurerm_resource_group.vladimirpoutine69.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 
-#### 3. Log Analytics Workspace
+  static_website {
+    index_document     = "index.html"
+    error_404_document = "404.html"
+  }
+
+  blob_properties {
+    cors_rule {
+      allowed_headers    = ["*"]
+      allowed_methods    = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowed_origins    = ["*"]
+      exposed_headers    = ["*"]
+      max_age_in_seconds = 3600
+    }
+  }
+}
+```
+
+**Rôle** : 
+- Hébergement du site web statique (HTML, CSS, JS)
+- Configuration CORS pour les appels API vers la Function App
+- CDN intégré pour la distribution globale
+- HTTPS automatique
+
+**Configuration** :
+- Container `$web` créé automatiquement
+- Document d'index : `index.html`
+- Page d'erreur 404 : `404.html`
+- CORS configuré pour permettre les appels cross-origin
+
+#### 4. Log Analytics Workspace
 ```hcl
 resource "azurerm_log_analytics_workspace" "vladimirpoutine69" {
   name                = coalesce(var.ws_name, random_string.name.result)
@@ -111,7 +154,7 @@ resource "azurerm_log_analytics_workspace" "vladimirpoutine69" {
 
 **Rôle** : Collecte et analyse des logs pour Application Insights
 
-#### 4. Application Insights
+#### 5. Application Insights
 ```hcl
 resource "azurerm_application_insights" "vladimirpoutine69" {
   name                = coalesce(var.ai_name, random_string.name.result)
@@ -123,11 +166,11 @@ resource "azurerm_application_insights" "vladimirpoutine69" {
 ```
 
 **Rôle** : 
-- Monitoring des performances
+- Monitoring des performances de l'API et du site web
 - Collecte des logs applicatifs
 - Debugging et diagnostics
 
-#### 5. Service Plan (Consumption Y1)
+#### 6. Service Plan (Consumption Y1)
 ```hcl
 resource "azurerm_service_plan" "vladimirpoutine69" {
   name                = coalesce(var.asp_name, random_string.name.result)
@@ -145,7 +188,7 @@ resource "azurerm_service_plan" "vladimirpoutine69" {
 - **Limitations** : 10 minutes max par exécution, pas de connectivité VNet native
 - **OS** : Windows et Linux supportés
 
-#### 6. Cosmos DB Account
+#### 7. Cosmos DB Account
 ```hcl
 resource "azurerm_cosmosdb_account" "counter_db" {
   name                = coalesce(var.cosmos_account_name, "cosmos-${random_string.name.result}")
@@ -178,7 +221,7 @@ resource "azurerm_cosmosdb_account" "counter_db" {
 - **Consistency Level** : BoundedStaleness (équilibre entre performance et consistance)
 - **Geo-location** : Single region (France Central)
 
-#### 7. Cosmos DB SQL Database
+#### 8. Cosmos DB SQL Database
 ```hcl
 resource "azurerm_cosmosdb_sql_database" "counter_database" {
   name                = "counterdb"
@@ -194,7 +237,7 @@ resource "azurerm_cosmosdb_sql_database" "counter_database" {
 - **Throughput** : 400 RU/s (Request Units par seconde)
 - **Facturation** : Basée sur les RU/s provisionnées
 
-#### 8. Cosmos DB SQL Container
+#### 9. Cosmos DB SQL Container
 ```hcl
 resource "azurerm_cosmosdb_sql_container" "counter_container" {
   name                  = "counters"
@@ -213,7 +256,7 @@ resource "azurerm_cosmosdb_sql_container" "counter_container" {
 - **Partition Key** : `/id` (clé de partitionnement pour la distribution des données)
 - **Throughput** : 400 RU/s dédié au container
 
-#### 9. Cosmos DB Custom Role Definition
+#### 10. Cosmos DB Custom Role Definition
 ```hcl
 resource "azurerm_cosmosdb_sql_role_definition" "counter_admin" {
   name                = "counter-admin"
@@ -247,7 +290,7 @@ resource "azurerm_cosmosdb_sql_role_definition" "counter_admin" {
 - `containers/*` : Accès complet aux containers
 - `items/*` : Accès complet aux documents
 
-#### 10. Cosmos DB Role Assignment
+#### 11. Cosmos DB Role Assignment
 ```hcl
 resource "azurerm_cosmosdb_sql_role_assignment" "function_cosmos_access_v2" {
   resource_group_name = azurerm_resource_group.vladimirpoutine69.name
@@ -265,7 +308,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "function_cosmos_access_v2" {
 - Évite l'utilisation des clés d'accès dans les app settings
 - Principe du moindre privilège appliqué
 
-#### 11. Function App
+#### 12. Function App
 ```hcl
 resource "azurerm_linux_function_app" "vladimirpoutine69" {
   name                = coalesce(var.fa_name, random_string.name.result)
@@ -276,6 +319,10 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
   storage_account_name       = azurerm_storage_account.vladimirpoutine69.name
   storage_account_access_key = azurerm_storage_account.vladimirpoutine69.primary_access_key
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   site_config {
     application_insights_connection_string = azurerm_application_insights.vladimirpoutine69.connection_string
     application_insights_key               = azurerm_application_insights.vladimirpoutine69.instrumentation_key
@@ -283,13 +330,18 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
     application_stack {
       python_version = var.runtime_version
     }
+
+    cors {
+      allowed_origins = ["*"]
+      support_credentials = false
+    }
   }
 
   app_settings = {
-    "COSMOS_DB_ENDPOINT"  = azurerm_cosmosdb_account.counter_db.endpoint
-    "COSMOS_DB_DATABASE"  = azurerm_cosmosdb_sql_database.counter_database.name
-    "COSMOS_DB_CONTAINER" = azurerm_cosmosdb_sql_container.counter_container.name
-    # Note: Pas de COSMOS_DB_KEY - utilisation de l'identité managée
+    "COSMOS_DB_ENDPOINT"             = azurerm_cosmosdb_account.counter_db.endpoint
+    "COSMOS_DB_DATABASE"             = azurerm_cosmosdb_sql_database.counter_database.name
+    "COSMOS_DB_CONTAINER"            = azurerm_cosmosdb_sql_container.counter_container.name
+    "COSMOS_DB_USE_MANAGED_IDENTITY" = "true"
   }
 }
 ```
@@ -298,8 +350,68 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
 - **Runtime** : Python 3.11
 - **OS** : Linux
 - **Identité managée** : Activée pour l'accès sécurisé à Cosmos DB
+- **CORS** : Configuré pour autoriser tous les origins (permissif pour le développement)
 - **Variables d'environnement Cosmos DB** : Endpoint, base de données et container (sans clé)
 - **Storage** : Connection automatique au Storage Account
+
+## Site web statique
+
+### Architecture du site web
+
+Le site web statique est hébergé sur Azure Storage et fournit une interface utilisateur moderne pour interagir avec l'API Azure Functions.
+
+#### Fichiers du site web
+
+##### 1. Interface utilisateur ([website/index.html](website/index.html))
+
+**Fonctionnalités** :
+- **URL dynamique** : L'URL de l'API est injectée par Terraform
+- **Gestion d'erreurs** : Affichage d'états d'erreur appropriés
+- **Indicateurs visuels** : États de chargement et hors ligne
+- **API REST** : Appels GET/POST vers l'Azure Function
+
+### Déploiement automatique du site web
+
+#### Configuration Terraform pour les blobs
+```hcl
+# Génération du script.js avec l'URL dynamique
+resource "azurerm_storage_blob" "script_js" {
+  name                   = "script.js"
+  storage_account_name   = azurerm_storage_account.static_website.name
+  storage_container_name = "$web"
+  type                   = "Block"
+  content_type           = "application/javascript"
+
+  source_content = templatefile("${path.module}/../website/script.js.tpl", {
+    function_app_url = "https://${azurerm_linux_function_app.vladimirpoutine69.default_hostname}"
+  })
+}
+
+# Upload des autres fichiers du site web
+resource "azurerm_storage_blob" "website_files" {
+  for_each = toset([
+    for file in fileset("${path.module}/../website", "*") : file
+    if file != "script.js.tpl"
+  ])
+
+  name                   = each.value
+  storage_account_name   = azurerm_storage_account.static_website.name
+  storage_container_name = "$web"
+  type                   = "Block"
+  source                 = "${path.module}/../website/${each.value}"
+
+  content_type = lookup({
+    "html" = "text/html"
+    "css"  = "text/css"
+  }, split(".", each.value)[length(split(".", each.value)) - 1], "application/octet-stream")
+}
+```
+
+**Avantages** :
+- **Déploiement automatique** : Les fichiers sont uploadés automatiquement lors du `terraform apply`
+- **URL dynamique** : Le script JavaScript reçoit automatiquement l'URL de la Function App
+- **Types MIME corrects** : Configuration automatique des content-types
+- **Gestion des templates** : Traitement spécial pour les fichiers `.tpl`
 
 ### Système de permissions RBAC
 
@@ -463,10 +575,11 @@ Récupère le code source depuis le repository.
 L'application implémente un compteur interactif avec interface web utilisant Cosmos DB pour la persistance :
 
 #### Fonctionnalités
-- **GET `/api/counter`** : Affiche l'interface web du compteur
+- **GET `/api/counter`** : Retourne les données JSON du compteur
 - **POST `/api/counter`** : Actions sur le compteur (increment, decrement, reset)
-- **Persistance** : Données stockées dans Cosmos DB
-- **Interface** : HTML/JavaScript responsive
+- **OPTIONS `/api/counter`** : Support CORS pour les requêtes cross-origin
+- **Persistance** : Données stockées dans Cosmos DB avec identité managée
+- **Interface** : Site web statique hébergé sur Azure Storage
 
 #### Structure des données Cosmos DB
 ```json
@@ -478,25 +591,88 @@ L'application implémente un compteur interactif avec interface web utilisant Co
 }
 ```
 
+#### Endpoints de l'API
+- **URL de l'API** : `https://vladimirpoutine69.azurewebsites.net/api/counter`
+- **URL du site web** : URL du endpoint primaire d'Azure Storage Static Website
+
 #### Tests locaux
 ```bash
-# Installer Azure Functions Core Tools
+# Installer Azure Functions Core Tools - Azurite pour le stockage local
 func start
 
 # Tester la fonction
 curl http://localhost:7071/api/counter
+
+# Tester avec action
+curl -X POST http://localhost:7071/api/counter \
+  -H "Content-Type: application/json" \
+  -d '{"action": "increment"}'
 ```
 
 ## Coûts estimés
 
 ### Ressources principales
 - **Function App (Y1)** : ~0€ (1M exécutions gratuites/mois)
-- **Storage Account (Standard LRS)** : ~0.02€/GB/mois
+- **Storage Account Function** : ~0.02€/GB/mois
+- **Storage Account Static Website** : ~0.02€/GB/mois + 0.0004€ par 10k requêtes
 - **Cosmos DB** : ~24€/mois (400 RU/s)
 - **Application Insights** : Gratuit jusqu'à 5GB/mois
 - **Log Analytics** : ~2.30€/GB après 5GB gratuits
+- **Transfert de données** : Premier 5GB gratuit par mois
 
 ### Optimisations possibles
 - Réduire les RU/s Cosmos DB si le trafic est faible
 - Utiliser l'auto-scaling pour Cosmos DB
+- Configurer un CDN pour le site web statique (amélioration des performances)
 - Monitoring des coûts via Azure Cost Management
+- Utiliser des lifecycle policies pour les logs anciens
+
+### Architecture complète
+
+```mermaid
+graph TB
+    subgraph "Azure Resource Group"
+        subgraph "Frontend"
+            SW[Storage Account Static Website]
+            SW --> HTML[index.html]
+            SW --> CSS[style.css] 
+            SW --> JS[script.js]
+        end
+        
+        subgraph "Backend"
+            FA[Function App Python 3.11]
+            SA[Storage Account Functions]
+            FA --> SA
+        end
+        
+        subgraph "Database"
+            CDB[Cosmos DB Account]
+            CDB --> DB[Database: counterdb]
+            DB --> CONT[Container: counters]
+        end
+        
+        subgraph "Monitoring"
+            LAW[Log Analytics Workspace]
+            AI[Application Insights]
+            AI --> LAW
+        end
+        
+        subgraph "Identity & Access"
+            MI[Managed Identity]
+            RBAC[Custom RBAC Role]
+            MI --> RBAC
+            RBAC --> CDB
+        end
+    end
+    
+    subgraph "External"
+        USER[User Browser]
+        GH[GitHub Actions]
+    end
+    
+    USER --> SW
+    JS --> FA
+    FA --> CONT
+    GH --> FA
+    FA --> AI
+```
