@@ -14,3 +14,6 @@ fa_name                     = "vladimirpoutine69"
 runtime_name                = "python"
 runtime_version             = "3.11"
 cosmos_account_name         = "vladimirpoutine69"
+
+tenant_id           = "901cb4ca-b862-4029-9306-e5cd0f6d9f86"
+entra_client_id     = "f6fe2ea9-9292-482f-9eb7-b60f58c39207"

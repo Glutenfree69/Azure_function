@@ -87,9 +87,3 @@ variable "entra_client_id" {
   type        = string
   sensitive   = true
 }
-
-variable "entra_client_secret" {
-  description = "Client Secret de l'application Entra ID"
-  type        = string
-  sensitive   = true
-}

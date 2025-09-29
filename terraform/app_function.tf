@@ -65,42 +65,30 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
       python_version = var.runtime_version
     }
 
+    # CORS simplifié pour MSAL.js (Bearer tokens dans headers, pas de cookies)
     cors {
-      allowed_origins     = ["https://${azurerm_storage_account.static_website.primary_web_endpoint}"]
-      support_credentials = false
-    }
-  }
-
-  # ✅ NOUVEAU : Configuration d'authentification Entra ID
-  auth_settings_v2 {
-    auth_enabled           = true
-    require_authentication = true
-    unauthenticated_action = "Return401"
-    default_provider       = "azureactivedirectory"
-
-    login {
-      logout_endpoint = "/.auth/logout"
-    }
-
-    active_directory_v2 {
-      client_id                  = var.entra_client_id
-      tenant_auth_endpoint       = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
-      client_secret_setting_name = "ENTRA_CLIENT_SECRET"
-      allowed_audiences = [
-        "api://${var.entra_client_id}"
+      allowed_origins = [
+        "https://${azurerm_storage_account.static_website.primary_web_endpoint}"
       ]
+      support_credentials = false  # Pas besoin avec Bearer tokens
     }
   }
+
+  # PAS de auth_settings_v2 - L'authentification est gérée par MSAL.js côté client
+  # et validée par JWT côté serveur (function_app.py)
 
   app_settings = {
+    # Cosmos DB avec Managed Identity
     "COSMOS_DB_ENDPOINT"             = azurerm_cosmosdb_account.counter_db.endpoint
     "COSMOS_DB_DATABASE"             = azurerm_cosmosdb_sql_database.counter_database.name
     "COSMOS_DB_CONTAINER"            = azurerm_cosmosdb_sql_container.counter_container.name
     "COSMOS_DB_USE_MANAGED_IDENTITY" = "true"
 
-    # ✅ NOUVEAU : Configuration Entra ID
-    "ENTRA_CLIENT_SECRET" = var.entra_client_secret
+    # Variables pour validation JWT dans function_app.py
+    "TENANT_ID"       = var.tenant_id
+    "ENTRA_CLIENT_ID" = var.entra_client_id
   }
+  
   lifecycle {
     ignore_changes = [tags]
   }

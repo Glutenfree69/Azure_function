@@ -87,9 +87,9 @@ def validate_token(token: str) -> dict:
         logging.error(f"❌ Erreur de validation du token: {str(e)}")
         raise ValueError(f"Token invalide: {str(e)}")
 
-def require_auth(func):
+def require_auth(handler):
     """Décorateur pour protéger les routes avec authentification JWT"""
-    @wraps(func)
+    @wraps(handler)
     def wrapper(req: func.HttpRequest) -> func.HttpResponse:
         # Extraire le token du header Authorization
         auth_header = req.headers.get('Authorization', '')
@@ -116,7 +116,7 @@ def require_auth(func):
             req.claims = claims
             
             # Appeler la fonction originale
-            return func(req)
+            return handler(req)
             
         except ValueError as e:
             logging.error(f"❌ Token invalide: {str(e)}")
