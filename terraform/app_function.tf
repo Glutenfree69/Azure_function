@@ -66,7 +66,7 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
     }
 
     cors {
-      allowed_origins     = ["*"]
+      allowed_origins     = ["https://${azurerm_storage_account.static_website.primary_web_endpoint}"]
       support_credentials = false
     }
   }
