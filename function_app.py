@@ -17,7 +17,7 @@ TENANT_ID = os.environ.get('TENANT_ID')
 CLIENT_ID = os.environ.get('ENTRA_CLIENT_ID')
 ISSUER = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0"
 
-# Cache pour les clés publiques de Microsoft (évite de les récupérer à chaque requête)
+# Cache pour les clés publiques de Microsoft
 _jwks_cache = None
 
 def get_jwks():
@@ -37,14 +37,12 @@ def validate_token(token: str) -> dict:
         ValueError: Si le token est invalide
     """
     try:
-        # Décoder le header pour obtenir le kid (key id)
         unverified_header = jwt.get_unverified_header(token)
         kid = unverified_header.get('kid')
         
         if not kid:
             raise ValueError("Token sans kid")
         
-        # Trouver la clé publique correspondante
         jwks = get_jwks()
         public_key = None
         
@@ -56,12 +54,11 @@ def validate_token(token: str) -> dict:
         if not public_key:
             raise ValueError("Clé publique non trouvée")
         
-        # Valider le token avec la clé publique
         decoded = jwt.decode(
             token,
             public_key,
             algorithms=['RS256'],
-            audience=f"api://{CLIENT_ID}",  # L'audience doit matcher l'API
+            audience=f"api://{CLIENT_ID}",
             issuer=ISSUER,
             options={
                 "verify_signature": True,
@@ -71,70 +68,60 @@ def validate_token(token: str) -> dict:
             }
         )
         
-        logging.info(f"✅ Token validé pour: {decoded.get('name', 'unknown')}")
+        logging.info(f"Token validé pour: {decoded.get('name', 'unknown')}")
         return decoded
         
     except jwt.ExpiredSignatureError:
-        logging.error("❌ Token expiré")
+        logging.error("Token expiré")
         raise ValueError("Token expiré")
     except jwt.InvalidAudienceError:
-        logging.error("❌ Audience invalide")
+        logging.error("Audience invalide")
         raise ValueError("Audience invalide")
     except jwt.InvalidIssuerError:
-        logging.error("❌ Issuer invalide")
+        logging.error("Issuer invalide")
         raise ValueError("Issuer invalide")
     except Exception as e:
-        logging.error(f"❌ Erreur de validation du token: {str(e)}")
+        logging.error(f"Erreur de validation du token: {str(e)}")
         raise ValueError(f"Token invalide: {str(e)}")
 
 def require_auth(handler):
     """Décorateur pour protéger les routes avec authentification JWT"""
     @wraps(handler)
     def wrapper(req: func.HttpRequest) -> func.HttpResponse:
-        # Extraire le token du header Authorization
         auth_header = req.headers.get('Authorization', '')
         
         if not auth_header.startswith('Bearer '):
-            logging.warning("⚠️ Header Authorization manquant ou invalide")
+            logging.warning("Header Authorization manquant ou invalide")
             return func.HttpResponse(
                 json.dumps({"error": "Authentification requise"}),
                 status_code=401,
                 mimetype="application/json",
                 headers={
-                    'Access-Control-Allow-Origin': req.headers.get('Origin', '*'),
-                    'Access-Control-Allow-Credentials': 'true'
+                    'Access-Control-Allow-Origin': req.headers.get('Origin', '*')
                 }
             )
         
         token = auth_header.replace('Bearer ', '')
         
         try:
-            # Valider le token
             claims = validate_token(token)
-            
-            # Ajouter les claims au contexte de la requête
             req.claims = claims
-            
-            # Appeler la fonction originale
             return handler(req)
             
         except ValueError as e:
-            logging.error(f"❌ Token invalide: {str(e)}")
+            logging.error(f"Token invalide: {str(e)}")
             return func.HttpResponse(
                 json.dumps({"error": f"Token invalide: {str(e)}"}),
                 status_code=401,
                 mimetype="application/json",
                 headers={
-                    'Access-Control-Allow-Origin': req.headers.get('Origin', '*'),
-                    'Access-Control-Allow-Credentials': 'true'
+                    'Access-Control-Allow-Origin': req.headers.get('Origin', '*')
                 }
             )
     
     return wrapper
 
-# ========================================
 # ROUTES
-# ========================================
 
 @app.route(route="counter", methods=["OPTIONS"])
 def counter_preflight(req: func.HttpRequest) -> func.HttpResponse:
@@ -147,7 +134,6 @@ def counter_preflight(req: func.HttpRequest) -> func.HttpResponse:
             'Access-Control-Allow-Origin': req.headers.get('Origin', '*'),
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Max-Age': '3600'
         }
     )
@@ -157,14 +143,12 @@ def counter_preflight(req: func.HttpRequest) -> func.HttpResponse:
 def counter(req: func.HttpRequest) -> func.HttpResponse:
     """Endpoint principal du compteur avec authentification JWT"""
     
-    # Récupérer les infos utilisateur depuis le token validé
     user_name = req.claims.get('name', req.claims.get('preferred_username', 'unknown'))
     user_email = req.claims.get('email', req.claims.get('upn', 'unknown'))
     
-    logging.info(f"✅ Requête authentifiée: {user_name} ({user_email})")
+    logging.info(f"Requête authentifiée: {user_name} ({user_email})")
 
     try:
-        # Configuration Cosmos DB
         endpoint = os.environ.get('COSMOS_DB_ENDPOINT')
         database_name = os.environ.get('COSMOS_DB_DATABASE')
         container_name = os.environ.get('COSMOS_DB_CONTAINER')
@@ -176,7 +160,6 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
                 origin=req.headers.get('Origin')
             )
 
-        # Authentification avec Managed Identity
         credential = DefaultAzureCredential()
         client = CosmosClient(endpoint, credential)
 
@@ -191,23 +174,18 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
             return handle_post_request(req, container, counter_id, user_name)
 
     except Exception as e:
-        logging.error(f"❌ Erreur générale: {str(e)}", exc_info=True)
+        logging.error(f"Erreur générale: {str(e)}", exc_info=True)
         return create_json_response(
             {"error": f"Erreur serveur: {str(e)}"},
             status_code=500,
             origin=req.headers.get('Origin')
         )
 
-# ========================================
 # HELPERS
-# ========================================
 
 def create_json_response(data, status_code=200, origin=None):
     """Crée une réponse JSON avec les headers CORS appropriés"""
-    headers = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Credentials': 'true'
-    }
+    headers = {'Content-Type': 'application/json'}
     
     if origin:
         headers['Access-Control-Allow-Origin'] = origin
@@ -264,7 +242,7 @@ def handle_get_request(container, counter_id, user_name=None, req=None):
             origin=req.headers.get('Origin')
         )
     except Exception as e:
-        logging.error(f"❌ Erreur GET: {str(e)}", exc_info=True)
+        logging.error(f"Erreur GET: {str(e)}", exc_info=True)
         return create_json_response(
             {"error": f"Erreur lors de la récupération: {str(e)}"},
             status_code=500,
@@ -315,14 +293,14 @@ def handle_post_request(req, container, counter_id, user_name=None):
         )
 
     except ValueError as e:
-        logging.error(f"❌ Erreur de validation POST: {str(e)}")
+        logging.error(f"Erreur de validation POST: {str(e)}")
         return create_json_response(
             {"error": "Format JSON invalide"},
             status_code=400,
             origin=req.headers.get('Origin')
         )
     except Exception as e:
-        logging.error(f"❌ Erreur POST: {str(e)}", exc_info=True)
+        logging.error(f"Erreur POST: {str(e)}", exc_info=True)
         return create_json_response(
             {"error": f"Erreur lors de l'action: {str(e)}"},
             status_code=500,
