@@ -4,65 +4,365 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Compteur Sécurisé - Entra ID</title>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .loading { animation: pulse 1.5s infinite; }
+        
+        @keyframes counterUpdate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .counter-animate { animation: counterUpdate 0.3s ease; }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <!-- ✅ NOUVEAU : Section d'authentification -->
-        <div id="user-info" class="user-section">
-            <!-- Contenu géré dynamiquement par JavaScript -->
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg">
+        
+        <!-- Section Authentification -->
+        <div id="auth-section" class="bg-white rounded-lg shadow-lg p-6 mb-4">
+            <!-- État de connexion géré par JavaScript -->
+            <div id="login-screen" class="text-center hidden">
+                <div class="mb-4">
+                    <div class="text-6xl mb-4">🔐</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Authentification requise</h2>
+                    <p class="text-gray-600 mb-6">Connectez-vous avec votre compte Entra ID pour accéder au compteur sécurisé</p>
+                </div>
+                <button onclick="login()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 transform hover:scale-105">
+                    Se connecter avec Entra ID
+                </button>
+            </div>
+
+            <div id="user-info" class="hidden">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                            <span id="user-initial">?</span>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Connecté en tant que</p>
+                            <p class="font-semibold text-gray-800" id="user-name">-</p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition duration-200 text-sm">
+                        Déconnexion
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <!-- ✅ MODIFIÉ : Contenu de l'application (masqué si non authentifié) -->
-        <div id="app-content" class="app-content" style="display: none;">
-            <div class="counter-container">
-                <h1>🔐 Compteur Sécurisé</h1>
-                <p class="subtitle">Authentifié avec Entra ID</p>
-
-                <!-- ✅ NOUVEAU : Utilisateur actuel -->
-                <div class="current-user">
-                    <span>Utilisateur: <strong id="current-user">-</strong></span>
+        <!-- Contenu principal de l'application -->
+        <div id="app-content" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                
+                <!-- Header -->
+                <div class="text-center mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">🔐 Compteur Sécurisé</h1>
+                    <p class="text-gray-600 text-sm">Authentifié avec Microsoft Entra ID (MSAL.js)</p>
                 </div>
 
-                <div class="counter-display">
-                    <div id="counter-value" class="counter-value">Chargement...</div>
+                <!-- Affichage du compteur -->
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-8 text-center mb-6 shadow-lg">
+                    <div id="counter-value" class="text-6xl font-bold text-white loading">-</div>
                 </div>
 
-                <div class="buttons">
-                    <button id="increment" class="button primary" onclick="updateCounter('increment')">
+                <!-- Boutons d'action -->
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <button onclick="updateCounter('increment')" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                         ➕ +1
                     </button>
-                    <button id="decrement" class="button primary" onclick="updateCounter('decrement')">
+                    <button onclick="updateCounter('decrement')" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                         ➖ -1
                     </button>
-                    <button id="reset" class="button danger" onclick="updateCounter('reset')">
+                    <button onclick="updateCounter('reset')" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                         🔄 Reset
                     </button>
                 </div>
 
-                <!-- ✅ NOUVEAU : Feedback des actions -->
-                <div id="action-feedback" class="feedback" style="display: none;"></div>
+                <!-- Toast de notification -->
+                <div id="toast" class="hidden mb-4 p-3 rounded-lg text-white text-center font-medium"></div>
 
-                <div class="info">
-                    <p class="last-updated">
-                        <strong>Dernière mise à jour:</strong>
-                        <span id="last-updated">-</span>
-                    </p>
-                    
-                    <!-- ✅ NOUVEAU : Qui a fait la dernière modification -->
-                    <div id="last-user-info" class="last-user-info" style="display: none;">
-                        <p><strong>Dernière modification par:</strong> <span id="last-user">-</span></p>
+                <!-- Informations -->
+                <div class="border-t border-gray-200 pt-4 space-y-3">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-600">Dernière mise à jour:</span>
+                        <span id="last-updated" class="font-medium text-gray-800">-</span>
+                    </div>
+                    <div id="last-user-section" class="hidden bg-gray-50 rounded-lg p-3">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-600">Modifié par:</span>
+                            <span id="last-user" class="font-medium text-gray-800">-</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="footer">
-                    <p>Compteur sécurisé avec Azure + Entra ID</p>
+                <!-- Footer -->
+                <div class="text-center mt-6 text-xs text-gray-500">
+                    <p>Compteur sécurisé avec Azure Functions + Entra ID</p>
+                    <p class="mt-1">MSAL.js v2 • OAuth 2.0 / OpenID Connect</p>
                 </div>
             </div>
         </div>
+
+        <!-- Indicateur de chargement initial -->
+        <div id="loading-screen" class="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p class="text-gray-600">Initialisation de l'authentification...</p>
+        </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // ========================================
+        // CONFIGURATION MSAL (À ADAPTER)
+        // ========================================
+        const msalConfig = {
+            auth: {
+                clientId: "COUNTER_CLIENT_ID",
+                authority: "https://login.microsoftonline.com/COUNTER_TENANT_ID",
+                redirectUri: window.location.origin
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: false
+            }
+        };
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        const loginRequest = {
+            scopes: ["api://COUNTER_CLIENT_ID/user_impersonation"]
+        };
+
+        const API_URL = 'COUNTER_API_URL/api/counter';
+
+        let currentAccount = null;
+
+        // ========================================
+        // INITIALISATION
+        // ========================================
+        async function initialize() {
+            console.log('🚀 Initialisation MSAL...');
+            
+            try {
+                const response = await msalInstance.handleRedirectPromise();
+                if (response) {
+                    currentAccount = response.account;
+                    console.log('✅ Authentification réussie après redirection');
+                } else {
+                    const accounts = msalInstance.getAllAccounts();
+                    if (accounts.length > 0) {
+                        currentAccount = accounts[0];
+                        console.log('✅ Compte trouvé dans le cache');
+                    }
+                }
+
+                document.getElementById('loading-screen').classList.add('hidden');
+                
+                if (currentAccount) {
+                    showAuthenticatedView();
+                    await loadCounter();
+                } else {
+                    showLoginScreen();
+                }
+            } catch (error) {
+                console.error('❌ Erreur d\'initialisation:', error);
+                document.getElementById('loading-screen').classList.add('hidden');
+                showLoginScreen();
+            }
+        }
+
+        // ========================================
+        // AUTHENTIFICATION
+        // ========================================
+        async function login() {
+            console.log('🔑 Démarrage de l\'authentification...');
+            try {
+                await msalInstance.loginRedirect(loginRequest);
+            } catch (error) {
+                console.error('❌ Erreur de connexion:', error);
+                showToast('Erreur de connexion: ' + error.message, 'error');
+            }
+        }
+
+        async function logout() {
+            if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+                console.log('👋 Déconnexion...');
+                await msalInstance.logoutRedirect({
+                    account: currentAccount
+                });
+            }
+        }
+
+        async function getAccessToken() {
+            const request = {
+                ...loginRequest,
+                account: currentAccount
+            };
+
+            try {
+                const response = await msalInstance.acquireTokenSilent(request);
+                return response.accessToken;
+            } catch (error) {
+                console.warn('⚠️ Token silent failed, redirection nécessaire');
+                await msalInstance.acquireTokenRedirect(request);
+            }
+        }
+
+        // ========================================
+        // UI
+        // ========================================
+        function showLoginScreen() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('user-info').classList.add('hidden');
+            document.getElementById('app-content').classList.add('hidden');
+        }
+
+        function showAuthenticatedView() {
+            const userName = currentAccount.name || currentAccount.username;
+            const initial = userName.charAt(0).toUpperCase();
+            
+            document.getElementById('user-name').textContent = userName;
+            document.getElementById('user-initial').textContent = initial;
+            
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('user-info').classList.remove('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                warning: 'bg-yellow-500',
+                info: 'bg-blue-500'
+            };
+            
+            toast.className = `p-3 rounded-lg text-white text-center font-medium mb-4 ${colors[type]}`;
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // ========================================
+        // API CALLS
+        // ========================================
+        async function loadCounter() {
+            try {
+                console.log('📥 Chargement du compteur...');
+                const counterEl = document.getElementById('counter-value');
+                counterEl.textContent = '...';
+                counterEl.classList.add('loading');
+
+                const token = await getAccessToken();
+                
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('✅ Données reçues:', data);
+
+                counterEl.classList.remove('loading');
+                counterEl.textContent = data.value;
+                counterEl.classList.add('counter-animate');
+                setTimeout(() => counterEl.classList.remove('counter-animate'), 300);
+
+                if (data.last_updated) {
+                    const date = new Date(data.last_updated);
+                    document.getElementById('last-updated').textContent = date.toLocaleString('fr-FR');
+                }
+
+                if (data.last_user) {
+                    document.getElementById('last-user').textContent = data.last_user;
+                    document.getElementById('last-user-section').classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('❌ Erreur de chargement:', error);
+                document.getElementById('counter-value').textContent = '❌';
+                document.getElementById('counter-value').classList.remove('loading');
+                showToast('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function updateCounter(action) {
+            try {
+                console.log(`🔄 Action "${action}"...`);
+                
+                document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+
+                const token = await getAccessToken();
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ action })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('✅ Action réussie:', data);
+
+                const messages = {
+                    increment: '➕ Compteur incrémenté',
+                    decrement: '➖ Compteur décrémenté',
+                    reset: '🔄 Compteur réinitialisé'
+                };
+                showToast(messages[action], 'success');
+
+                await loadCounter();
+
+            } catch (error) {
+                console.error('❌ Erreur:', error);
+                showToast('Erreur: ' + error.message, 'error');
+            } finally {
+                document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // ========================================
+        // ÉVÉNEMENTS
+        // ========================================
+        window.addEventListener('load', initialize);
+
+        setInterval(() => {
+            if (currentAccount && !document.hidden) {
+                console.log('🔄 Rafraîchissement auto...');
+                loadCounter();
+            }
+        }, 30000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && currentAccount) {
+                loadCounter();
+            }
+        });
+    </script>
 </body>
 </html>

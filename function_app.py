@@ -5,36 +5,163 @@ from azure.cosmos import CosmosClient, exceptions
 from azure.identity import DefaultAzureCredential
 import logging
 from datetime import datetime, timezone
+import jwt
+import requests
+from functools import wraps
 
-# Configuration avec authentification USER
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)  # ✅ CHANGÉ temporairement
+# Configuration avec authentification ANONYMOUS (MSAL gère l'auth)
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
-# ✅ NOUVEAU : Route séparée pour gérer OPTIONS (preflight CORS)
+# Configuration Entra ID
+TENANT_ID = os.environ.get('TENANT_ID')
+CLIENT_ID = os.environ.get('ENTRA_CLIENT_ID')
+ISSUER = f"https://login.microsoftonline.com/{TENANT_ID}/v2.0"
+
+# Cache pour les clés publiques de Microsoft (évite de les récupérer à chaque requête)
+_jwks_cache = None
+
+def get_jwks():
+    """Récupère les clés publiques de Microsoft pour valider les JWT"""
+    global _jwks_cache
+    if _jwks_cache is None:
+        jwks_uri = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
+        response = requests.get(jwks_uri)
+        _jwks_cache = response.json()
+    return _jwks_cache
+
+def validate_token(token: str) -> dict:
+    """
+    Valide un token JWT et retourne les claims si valide
+    
+    Raises:
+        ValueError: Si le token est invalide
+    """
+    try:
+        # Décoder le header pour obtenir le kid (key id)
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get('kid')
+        
+        if not kid:
+            raise ValueError("Token sans kid")
+        
+        # Trouver la clé publique correspondante
+        jwks = get_jwks()
+        public_key = None
+        
+        for key in jwks.get('keys', []):
+            if key.get('kid') == kid:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key))
+                break
+        
+        if not public_key:
+            raise ValueError("Clé publique non trouvée")
+        
+        # Valider le token avec la clé publique
+        decoded = jwt.decode(
+            token,
+            public_key,
+            algorithms=['RS256'],
+            audience=f"api://{CLIENT_ID}",  # L'audience doit matcher l'API
+            issuer=ISSUER,
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_aud": True,
+                "verify_iss": True
+            }
+        )
+        
+        logging.info(f"✅ Token validé pour: {decoded.get('name', 'unknown')}")
+        return decoded
+        
+    except jwt.ExpiredSignatureError:
+        logging.error("❌ Token expiré")
+        raise ValueError("Token expiré")
+    except jwt.InvalidAudienceError:
+        logging.error("❌ Audience invalide")
+        raise ValueError("Audience invalide")
+    except jwt.InvalidIssuerError:
+        logging.error("❌ Issuer invalide")
+        raise ValueError("Issuer invalide")
+    except Exception as e:
+        logging.error(f"❌ Erreur de validation du token: {str(e)}")
+        raise ValueError(f"Token invalide: {str(e)}")
+
+def require_auth(func):
+    """Décorateur pour protéger les routes avec authentification JWT"""
+    @wraps(func)
+    def wrapper(req: func.HttpRequest) -> func.HttpResponse:
+        # Extraire le token du header Authorization
+        auth_header = req.headers.get('Authorization', '')
+        
+        if not auth_header.startswith('Bearer '):
+            logging.warning("⚠️ Header Authorization manquant ou invalide")
+            return func.HttpResponse(
+                json.dumps({"error": "Authentification requise"}),
+                status_code=401,
+                mimetype="application/json",
+                headers={
+                    'Access-Control-Allow-Origin': req.headers.get('Origin', '*'),
+                    'Access-Control-Allow-Credentials': 'true'
+                }
+            )
+        
+        token = auth_header.replace('Bearer ', '')
+        
+        try:
+            # Valider le token
+            claims = validate_token(token)
+            
+            # Ajouter les claims au contexte de la requête
+            req.claims = claims
+            
+            # Appeler la fonction originale
+            return func(req)
+            
+        except ValueError as e:
+            logging.error(f"❌ Token invalide: {str(e)}")
+            return func.HttpResponse(
+                json.dumps({"error": f"Token invalide: {str(e)}"}),
+                status_code=401,
+                mimetype="application/json",
+                headers={
+                    'Access-Control-Allow-Origin': req.headers.get('Origin', '*'),
+                    'Access-Control-Allow-Credentials': 'true'
+                }
+            )
+    
+    return wrapper
+
+# ========================================
+# ROUTES
+# ========================================
+
 @app.route(route="counter", methods=["OPTIONS"])
 def counter_preflight(req: func.HttpRequest) -> func.HttpResponse:
     """Gère les requêtes preflight CORS"""
-    logging.info('Preflight CORS request processed')
+    logging.info('Preflight CORS request')
     
     return func.HttpResponse(
-        status_code=204,  # No Content
+        status_code=204,
         headers={
             'Access-Control-Allow-Origin': req.headers.get('Origin', '*'),
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MS-CLIENT-PRINCIPAL-ID, X-MS-CLIENT-PRINCIPAL-NAME',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Max-Age': '3600'
         }
     )
 
 @app.route(route="counter", methods=["GET", "POST"])
+@require_auth
 def counter(req: func.HttpRequest) -> func.HttpResponse:
-    """Endpoint principal du compteur avec authentification"""
-    logging.info('Python HTTP trigger function processed a request.')
+    """Endpoint principal du compteur avec authentification JWT"""
     
-    # Récupération des informations utilisateur (Entra ID)
-    user_id = req.headers.get('X-MS-CLIENT-PRINCIPAL-ID', 'anonymous')
-    user_name = req.headers.get('X-MS-CLIENT-PRINCIPAL-NAME', 'anonymous')
-    logging.info(f"Utilisateur: {user_name} (ID: {user_id})")
+    # Récupérer les infos utilisateur depuis le token validé
+    user_name = req.claims.get('name', req.claims.get('preferred_username', 'unknown'))
+    user_email = req.claims.get('email', req.claims.get('upn', 'unknown'))
+    
+    logging.info(f"✅ Requête authentifiée: {user_name} ({user_email})")
 
     try:
         # Configuration Cosmos DB
@@ -45,13 +172,13 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
         if not all([endpoint, database_name, container_name]):
             return create_json_response(
                 {"error": "Configuration Cosmos DB manquante"},
-                status_code=500
+                status_code=500,
+                origin=req.headers.get('Origin')
             )
 
         # Authentification avec Managed Identity
         credential = DefaultAzureCredential()
         client = CosmosClient(endpoint, credential)
-        logging.info("✅ Authentification via Managed Identity réussie")
 
         database = client.get_database_client(database_name)
         container = database.get_container_client(container_name)
@@ -64,11 +191,16 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
             return handle_post_request(req, container, counter_id, user_name)
 
     except Exception as e:
-        logging.error(f"Erreur générale: {str(e)}", exc_info=True)
+        logging.error(f"❌ Erreur générale: {str(e)}", exc_info=True)
         return create_json_response(
             {"error": f"Erreur serveur: {str(e)}"},
-            status_code=500
+            status_code=500,
+            origin=req.headers.get('Origin')
         )
+
+# ========================================
+# HELPERS
+# ========================================
 
 def create_json_response(data, status_code=200, origin=None):
     """Crée une réponse JSON avec les headers CORS appropriés"""
@@ -91,7 +223,7 @@ def get_or_create_counter(container, counter_id):
     """Récupère ou crée le document compteur"""
     try:
         counter_doc = container.read_item(item=counter_id, partition_key=counter_id)
-        logging.info(f"Compteur existant récupéré: {counter_doc['value']}")
+        logging.info(f"Compteur existant: {counter_doc['value']}")
         return counter_doc
     except exceptions.CosmosResourceNotFoundError:
         current_time = datetime.now(timezone.utc).isoformat()
@@ -117,12 +249,10 @@ def update_counter(container, counter_id, new_value, user_name=None):
     return counter_doc
 
 def handle_get_request(container, counter_id, user_name=None, req=None):
-    """Gère les requêtes GET - Retourne les données JSON du compteur"""
+    """Gère les requêtes GET"""
     try:
         counter_doc = get_or_create_counter(container, counter_id)
         
-        origin = req.headers.get('Origin') if req else None
-
         return create_json_response(
             {
                 "value": counter_doc['value'],
@@ -131,17 +261,18 @@ def handle_get_request(container, counter_id, user_name=None, req=None):
                 "last_user": counter_doc.get('last_user', 'unknown'),
                 "current_user": user_name
             },
-            origin=origin
+            origin=req.headers.get('Origin')
         )
     except Exception as e:
-        logging.error(f"Erreur GET: {str(e)}", exc_info=True)
+        logging.error(f"❌ Erreur GET: {str(e)}", exc_info=True)
         return create_json_response(
             {"error": f"Erreur lors de la récupération: {str(e)}"},
-            status_code=500
+            status_code=500,
+            origin=req.headers.get('Origin')
         )
 
 def handle_post_request(req, container, counter_id, user_name=None):
-    """Gère les requêtes POST - Actions sur le compteur"""
+    """Gère les requêtes POST"""
     try:
         req_body = req.get_json()
         action = req_body.get('action') if req_body else None
@@ -149,13 +280,13 @@ def handle_post_request(req, container, counter_id, user_name=None):
         if not action:
             return create_json_response(
                 {"error": "Action manquante (increment, decrement, reset)"},
-                status_code=400
+                status_code=400,
+                origin=req.headers.get('Origin')
             )
 
         counter_doc = get_or_create_counter(container, counter_id)
         current_value = counter_doc['value']
 
-        # Validation et calcul de la nouvelle valeur
         if action == 'increment':
             new_value = current_value + 1
         elif action == 'decrement':
@@ -164,13 +295,12 @@ def handle_post_request(req, container, counter_id, user_name=None):
             new_value = 0
         else:
             return create_json_response(
-                {"error": f"Action '{action}' non valide. Actions valides: increment, decrement, reset"},
-                status_code=400
+                {"error": f"Action '{action}' non valide"},
+                status_code=400,
+                origin=req.headers.get('Origin')
             )
 
         updated_doc = update_counter(container, counter_id, new_value, user_name)
-        
-        origin = req.headers.get('Origin')
 
         return create_json_response(
             {
@@ -181,18 +311,20 @@ def handle_post_request(req, container, counter_id, user_name=None):
                 "timestamp": updated_doc["last_updated"],
                 "user": user_name
             },
-            origin=origin
+            origin=req.headers.get('Origin')
         )
 
     except ValueError as e:
-        logging.error(f"Erreur de validation POST: {str(e)}")
+        logging.error(f"❌ Erreur de validation POST: {str(e)}")
         return create_json_response(
             {"error": "Format JSON invalide"},
-            status_code=400
+            status_code=400,
+            origin=req.headers.get('Origin')
         )
     except Exception as e:
-        logging.error(f"Erreur POST: {str(e)}", exc_info=True)
+        logging.error(f"❌ Erreur POST: {str(e)}", exc_info=True)
         return create_json_response(
             {"error": f"Erreur lors de l'action: {str(e)}"},
-            status_code=500
+            status_code=500,
+            origin=req.headers.get('Origin')
         )

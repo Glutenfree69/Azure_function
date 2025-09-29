@@ -1,9 +1,7 @@
-
 # ========================================
 # STORAGE ACCOUNT DÉDIÉ POUR LE SITE WEB STATIQUE
 # ========================================
 
-# Storage Account séparé pour le site web statique
 resource "azurerm_storage_account" "static_website" {
   name                     = "static${var.sa_staticweb_name}"
   resource_group_name      = azurerm_resource_group.vladimirpoutine69.name
@@ -11,42 +9,40 @@ resource "azurerm_storage_account" "static_website" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  # Enable static website hosting
-  # static_website {
-  #   index_document     = "index.html"
-  #   error_404_document = "404.html"
-  # }
-
-  blob_properties {
-    # CORS pour permettre les appels à ton API Function
-    cors_rule {
-      allowed_headers    = ["*"]
-      allowed_methods    = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-      allowed_origins    = ["*"]
-      exposed_headers    = ["*"]
-      max_age_in_seconds = 3600
-    }
-  }
+  # Pas besoin de CORS ici - MSAL gère tout côté client
+  # Les appels API vers la Function App sont gérés par CORS de la Function App
 }
 
-# Génération du script.js avec l'URL dynamique
-resource "azurerm_storage_blob" "script_js" {
-  name                   = "script.js"
+# Upload du fichier HTML avec injection des valeurs Entra ID et API URL
+resource "azurerm_storage_blob" "index_html" {
+  name                   = "index.html"
   storage_account_name   = azurerm_storage_account.static_website.name
   storage_container_name = "$web"
   type                   = "Block"
-  content_type           = "application/javascript"
+  content_type           = "text/html"
 
-  source_content = templatefile("${path.module}/../website/script.js.tpl", {
-    function_app_url = "https://${azurerm_linux_function_app.vladimirpoutine69.default_hostname}"
-  })
+  # Triple replacement : CLIENT_ID, TENANT_ID, API_URL
+  source_content = replace(
+    replace(
+      replace(
+        file("${path.module}/../website/index.html"),
+        "COUNTER_CLIENT_ID",
+        var.entra_client_id
+      ),
+      "COUNTER_TENANT_ID",
+      var.tenant_id
+    ),
+    "COUNTER_API_URL",
+    "https://${azurerm_linux_function_app.vladimirpoutine69.default_hostname}"
+  )
 }
 
-# Upload des autres fichiers du site web (HTML, CSS)
-resource "azurerm_storage_blob" "website_files" {
+# Upload des autres fichiers du site web (CSS, images, etc.) - optionnel
+# Si tu as d'autres fichiers dans website/ (logos, images, etc.)
+resource "azurerm_storage_blob" "website_assets" {
   for_each = toset([
     for file in fileset("${path.module}/../website", "*") : file
-    if file != "script.js.tpl" && file != "staticwebapp.config.json"
+    if file != "index.html" && file != "script.js.tpl" && file != "staticwebapp.config.json"
   ])
 
   name                   = each.value
@@ -56,20 +52,13 @@ resource "azurerm_storage_blob" "website_files" {
   source                 = "${path.module}/../website/${each.value}"
 
   content_type = lookup({
-    "html" = "text/html"
     "css"  = "text/css"
+    "js"   = "application/javascript"
+    "json" = "application/json"
+    "png"  = "image/png"
+    "jpg"  = "image/jpeg"
+    "jpeg" = "image/jpeg"
+    "svg"  = "image/svg+xml"
+    "ico"  = "image/x-icon"
   }, split(".", each.value)[length(split(".", each.value)) - 1], "application/octet-stream")
-}
-
-# Ajout du fichier de configuration d'authentification
-resource "azurerm_storage_blob" "static_config" {
-  name                   = "staticwebapp.config.json"
-  storage_account_name   = azurerm_storage_account.static_website.name
-  storage_container_name = "$web"
-  type                   = "Block"
-  content_type           = "application/json"
-
-  source_content = templatefile("${path.module}/../website/staticwebapp.config.json", {
-    tenant_id = var.tenant_id
-  })
 }
