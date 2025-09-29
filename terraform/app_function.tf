@@ -67,9 +67,10 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
 
     # CORS simplifié pour MSAL.js (Bearer tokens dans headers, pas de cookies)
     cors {
-      allowed_origins = [
-        "https://${azurerm_storage_account.static_website.primary_web_endpoint}"
-      ]
+      allowed_origins = ["*"]
+      # allowed_origins = [
+      #   trimsuffix(azurerm_storage_account.static_website.primary_web_endpoint, "/")
+      # ]
       support_credentials = false  # Pas besoin avec Bearer tokens
     }
   }
