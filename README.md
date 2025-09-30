@@ -18,40 +18,52 @@ Architecture serverless moderne avec authentification OAuth 2.0.
 
 ```mermaid
 graph TB
-    USER[Utilisateur] --> SPA[SPA<br/>MSAL.js]
-    SPA -.->|OAuth 2.0| ENTRA[Entra ID]
-    SPA -->|Bearer token| FA[Function App<br/>JWT Validation]
-    FA -->|Managed Identity| COSMOS[Cosmos DB]
-    FA --> AI[Application<br/>Insights]
+    subgraph Client
+        USER[👤 Utilisateur]
+        SPA[🌐 SPA<br/>MSAL.js + Tailwind]
+        USER --> SPA
+    end
     
-    GH[GitHub Actions] -->|Deploy code| FA
-    TF[Terraform] -->|Provision| SPA
+    subgraph "Microsoft Entra ID"
+        ENTRA[🔐 Entra ID<br/>OAuth 2.0]
+    end
+    
+    subgraph "Azure Resource Group"
+        subgraph "Frontend"
+            STATIC[💾 Static Website<br/>Azure Storage]
+        end
+        
+        subgraph "Backend"
+            FA[⚡ Function App<br/>Python 3.11<br/>JWT Validation]
+        end
+        
+        subgraph "Data"
+            COSMOS[🗄️ Cosmos DB<br/>SQL API]
+        end
+        
+        subgraph "Monitoring"
+            AI[📊 Application<br/>Insights]
+        end
+    end
+    
+    subgraph "CI/CD"
+        GH[🐙 GitHub Actions]
+        TF[🏗️ Terraform]
+    end
+    
+    SPA -.->|1. OAuth 2.0| ENTRA
+    ENTRA -.->|2. JWT Token| SPA
+    SPA -->|3. Bearer token| FA
+    FA -->|4. Managed Identity| COSMOS
+    FA --> AI
+    
+    GH -->|Deploy code| FA
+    TF -->|Provision| STATIC
     TF -->|Provision| FA
     TF -->|Provision| COSMOS
 ```
 
-Pour l'architecture détaillée avec tous les flux, voir [ARCHITECTURE.md](ARCHITECTURE.md).
-graph TB
-    subgraph Client
-        USER[Utilisateur] --> SPA[SPA MSAL.js]
-    end
-    
-    subgraph Azure
-        SPA --> |Bearer token| FA[Function App]
-        FA --> |Managed Identity| COSMOS[Cosmos DB]
-        FA --> AI[Application Insights]
-    end
-    
-    subgraph "Entra ID"
-        SPA -.->|OAuth 2.0| ENTRA[Microsoft Entra ID]
-    end
-    
-    subgraph "CI/CD"
-        GH[GitHub Actions] --> FA
-        TF[Terraform] --> SPA
-        TF --> FA
-    end
-```
+**Pour l'architecture détaillée avec tous les flux**, voir [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Fonctionnalités
 
@@ -509,11 +521,3 @@ GitHub Actions déploie automatiquement sur push vers `main` :
 - [MSAL.js Documentation](https://github.com/AzureAD/microsoft-authentication-library-for-js)
 - [Terraform azurerm Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)
 - [AUTHENTICATION.md](AUTHENTICATION.md) - Guide détaillé OAuth 2.0
-
-## Licence
-
-MIT
-
-## Auteur
-
-Projet d'apprentissage Azure (Associate AWS en formation Azure)
