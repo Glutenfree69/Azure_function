@@ -41,7 +41,7 @@ graph TB
         subgraph "Backend Layer"
             FA[⚡ Function App<br/>Python 3.11<br/>Plan Consumption Y1]
             ROUTE_OPTIONS[OPTIONS /api/counter<br/>CORS Preflight]
-            ROUTE_API[GET/POST /api/counter<br/>@require_auth]
+            ROUTE_API[GET/POST /api/counter<br/>require_auth]
             JWT_VALIDATOR[🔒 JWT Validator<br/>PyJWT + RSA]
             
             FA --> ROUTE_OPTIONS
@@ -155,7 +155,7 @@ graph TB
         end
         
         subgraph "Middleware"
-            DECORATOR[@require_auth<br/>JWT validation]
+            DECORATOR[require_auth decorator<br/>JWT validation]
         end
         
         subgraph "Business Logic"
@@ -201,7 +201,7 @@ graph TB
     
     subgraph "Access Control"
         ROLE_DEF[Custom Role Definition<br/>counter-admin]
-        ROLE_ASSIGN[Role Assignment<br/>→ Function App Identity]
+        ROLE_ASSIGN[Role Assignment<br/>to Function App Identity]
         
         ROLE_DEF --> ROLE_ASSIGN
     end
@@ -242,7 +242,7 @@ sequenceDiagram
         U->>E: Email + Password
         E->>E: Valide credentials
         E->>M: Redirect avec code
-        M->>E: POST /token<br/>code → tokens
+        M->>E: POST /token<br/>code vers tokens
         E->>M: access_token + id_token
         M->>M: Store dans localStorage
     end
@@ -251,13 +251,13 @@ sequenceDiagram
     
     B->>M: getAccessToken()
     M->>B: access_token (JWT)
-    B->>F: GET /api/counter<br/>Authorization: Bearer <token>
+    B->>F: GET /api/counter<br/>Authorization: Bearer token
     
     Note over F,K: Phase 3: Validation JWT
     
     F->>F: Extrait token du header
     F->>J: validate_token(token)
-    J->>J: jwt.get_unverified_header()<br/>→ kid
+    J->>J: jwt.get_unverified_header()<br/>extrait kid
     J->>K: GET /discovery/v2.0/keys
     K->>J: JWKS (clés publiques)
     J->>J: Trouve clé avec kid matching
@@ -300,7 +300,7 @@ Détail d'un appel API complet avec validation JWT.
 sequenceDiagram
     participant C as 🌐 Client SPA
     participant FA as ⚡ Function App
-    participant D as @require_auth
+    participant D as require_auth
     participant V as validate_token()
     participant K as JWKS
     participant H as Handler
@@ -317,7 +317,7 @@ sequenceDiagram
         D->>D: token = header.replace('Bearer ', '')
         D->>V: validate_token(token)
         
-        V->>V: Decode header → kid
+        V->>V: Decode header extrait kid
         V->>K: GET /keys
         K->>V: Public keys
         V->>V: Find key by kid
@@ -471,7 +471,7 @@ graph TB
     subgraph "Security & RBAC"
         ROLE_DEF[azurerm_cosmosdb_sql_role_definition<br/>counter-admin]
         
-        ROLE_ASSIGN[azurerm_cosmosdb_sql_role_assignment<br/>FA identity → role]
+        ROLE_ASSIGN[azurerm_cosmosdb_sql_role_assignment<br/>FA identity to role]
         
         COSMOS_ACC --> ROLE_DEF
         ROLE_DEF --> ROLE_ASSIGN
@@ -488,7 +488,7 @@ graph TB
     end
     
     subgraph "Static Website Deployment"
-        BLOB_HTML[azurerm_storage_blob<br/>index.html<br/>replace() x3]
+        BLOB_HTML[azurerm_storage_blob<br/>index.html<br/>with template injection]
         
         SA_STATIC --> BLOB_HTML
         VARS -.->|inject values| BLOB_HTML
