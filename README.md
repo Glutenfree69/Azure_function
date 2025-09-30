@@ -521,3 +521,4 @@ GitHub Actions déploie automatiquement sur push vers `main` :
 - [MSAL.js Documentation](https://github.com/AzureAD/microsoft-authentication-library-for-js)
 - [Terraform azurerm Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)
 - [AUTHENTICATION.md](AUTHENTICATION.md) - Guide détaillé OAuth 2.0
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Schémas d'archi AI generated
