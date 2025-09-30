@@ -14,94 +14,23 @@ Compteur interactif sécurisé utilisant :
 
 ## Architecture
 
-### Vue d'ensemble
+Architecture serverless moderne avec authentification OAuth 2.0.
 
 ```mermaid
 graph TB
-    subgraph "Client (Navigateur)"
-        USER[Utilisateur] --> SPA[SPA MSAL.js]
-    end
+    USER[Utilisateur] --> SPA[SPA<br/>MSAL.js]
+    SPA -.->|OAuth 2.0| ENTRA[Entra ID]
+    SPA -->|Bearer token| FA[Function App<br/>JWT Validation]
+    FA -->|Managed Identity| COSMOS[Cosmos DB]
+    FA --> AI[Application<br/>Insights]
     
-    subgraph "Microsoft Entra ID"
-        SPA -.->|OAuth 2.0| ENTRA[Microsoft Entra ID]
-    end
-    
-    subgraph "Azure Resource Group"
-        subgraph "Frontend"
-            STORAGE[Storage Account Static Website]
-            HTML[index.html avec MSAL.js + Tailwind]
-            STORAGE --> HTML
-        end
-        
-        subgraph "Backend"
-            FA[Function App Python 3.11]
-            JWT[JWT Validation PyJWT]
-            FA --> JWT
-        end
-        
-        subgraph "Database"
-            COSMOS[Cosmos DB]
-            DB[Database: counterdb]
-            CONT[Container: counters]
-            COSMOS --> DB
-            DB --> CONT
-        end
-        
-        subgraph "Monitoring"
-            AI[Application Insights]
-            LOGS[Log Analytics]
-            AI --> LOGS
-        end
-        
-        subgraph "Identity & Access"
-            MI[Managed Identity]
-            RBAC[Custom RBAC Role]
-            MI --> RBAC
-            RBAC --> COSMOS
-        end
-    end
-    
-    subgraph "CI/CD"
-        GH[GitHub Actions]
-        TF[Terraform]
-    end
-    
-    SPA -->|Bearer token| FA
-    JWT -.->|Vérifie| ENTRA
-    FA -->|Managed Identity| CONT
-    FA --> AI
-    GH -->|Deploy code| FA
-    TF -->|Provision infra| STORAGE
-    TF -->|Provision infra| FA
-    TF -->|Provision infra| COSMOS
+    GH[GitHub Actions] -->|Deploy code| FA
+    TF[Terraform] -->|Provision| SPA
+    TF -->|Provision| FA
+    TF -->|Provision| COSMOS
 ```
 
-### Flux de déploiement
-
-```mermaid
-graph TD
-    A[Code Push vers GitHub] --> B[GitHub Actions Trigger]
-    B --> C[Setup Python 3.11]
-    C --> D[Install Dependencies PyJWT]
-    D --> E[Create ZIP Package]
-    E --> F[Azure CLI Login RBAC]
-    F --> G[Deploy ZIP to Function App]
-    G --> H[Function App Running]
-    H --> I[Validate JWT tokens]
-    I --> J[Access Cosmos DB]
-    
-    K[Terraform Apply] --> L[Provision Infrastructure]
-    L --> M[Deploy Static Website]
-    M --> N[Inject Entra ID config]
-    N --> O[User Interface Ready]
-    
-    O --> H
-    H --> P[JSON API Response]
-```
-
-### Flux d'authentification détaillé
-
-```mermaid
+Pour l'architecture détaillée avec tous les flux, voir [ARCHITECTURE.md](ARCHITECTURE.md).
 graph TB
     subgraph Client
         USER[Utilisateur] --> SPA[SPA MSAL.js]
@@ -579,4 +508,12 @@ GitHub Actions déploie automatiquement sur push vers `main` :
 - [Documentation Azure Functions](https://learn.microsoft.com/azure/azure-functions/)
 - [MSAL.js Documentation](https://github.com/AzureAD/microsoft-authentication-library-for-js)
 - [Terraform azurerm Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)
-- [AUTH.md](AUTHENTICATION.md) - Guide détaillé OAuth 2.0
+- [AUTHENTICATION.md](AUTHENTICATION.md) - Guide détaillé OAuth 2.0
+
+## Licence
+
+MIT
+
+## Auteur
+
+Projet d'apprentissage Azure (Associate AWS en formation Azure)
