@@ -15,7 +15,7 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 # Configuration Entra ID
 TENANT_ID = os.environ.get('TENANT_ID')
 CLIENT_ID = os.environ.get('ENTRA_CLIENT_ID')
-ISSUER = f"https://login.microsoftonline.com/{TENANT_ID}/"
+ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
 
 # Cache pour les clés publiques de Microsoft
 _jwks_cache = None
