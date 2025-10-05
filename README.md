@@ -69,7 +69,7 @@ graph TB
 
 ✅ Authentification OAuth 2.0 avec MSAL.js  
 ✅ Validation JWT côté serveur (PyJWT)  
-✅ CORS configuré correctement  
+✅ CORS configuré 
 ✅ Managed Identity pour Cosmos DB (pas de clés)  
 ✅ Monitoring avec Application Insights  
 ✅ Infrastructure as Code avec Terraform  
@@ -375,59 +375,6 @@ az functionapp log tail \
   --name vladimirpoutine69 \
   --resource-group rg-vladimirpoutine69
 ```
-
-## Troubleshooting
-
-### Erreur CORS
-
-**Symptôme** : `No 'Access-Control-Allow-Origin' header`
-
-**Solution** : Vérifier le CORS Terraform avec `trimsuffix()`
-
-```bash
-# Tester preflight
-curl -i -X OPTIONS \
-  -H "Origin: https://staticvladimirpoutine69.z28.web.core.windows.net" \
-  https://vladimirpoutine69.azurewebsites.net/api/counter
-```
-
-### Erreur JWT : Issuer invalide
-
-**Symptôme** : `Token invalide: Issuer invalide`
-
-**Cause** : Token v1.0 vs v2.0
-
-**Solution** : Vérifier l'issuer du token
-
-```javascript
-// Console navigateur
-const token = await getAccessToken();
-const payload = JSON.parse(atob(token.split('.')[1]));
-console.log(payload.iss);
-
-// Si sts.windows.net → token v1.0 (notre cas)
-// Si login.microsoftonline.com/v2.0 → token v2.0
-```
-
-Ajuster `function_app.py` :
-
-```python
-# Pour token v1.0
-ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
-```
-
-### Placeholders non remplacés
-
-**Symptôme** : Page affiche `COUNTER_CLIENT_ID`
-
-**Solution** : Redéployer HTML avec Terraform
-
-```bash
-cd terraform
-terraform apply -auto-approve
-```
-
-Voir [AUTHENTICATION.md](AUTHENTICATION.md) pour plus de troubleshooting.
 
 ## Coûts estimés
 

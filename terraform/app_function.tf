@@ -70,7 +70,7 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
       allowed_origins = [
         trimsuffix(azurerm_storage_account.static_website.primary_web_endpoint, "/")
       ]
-      support_credentials = false  # Pas besoin avec Bearer tokens
+      support_credentials = false # Pas besoin avec Bearer tokens
     }
   }
 
@@ -88,7 +88,7 @@ resource "azurerm_linux_function_app" "vladimirpoutine69" {
     "TENANT_ID"       = var.tenant_id
     "ENTRA_CLIENT_ID" = var.entra_client_id
   }
-  
+
   lifecycle {
     ignore_changes = [tags]
   }

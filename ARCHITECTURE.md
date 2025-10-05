@@ -147,6 +147,7 @@ graph LR
 ```mermaid
 graph TB
     subgraph "Function App: vladimirpoutine69"
+    
         HOST[host.json<br/>Python 3.11]
         
         subgraph "Routes"

@@ -1,5 +1,4 @@
-github_actions_object_id = "61d850ea-a0df-410f-9c58-99ef8b77ecac"
-subscription_id          = "249471bf-b8ae-4c8a-abf4-f9e67509e192"
+subscription_id = "249471bf-b8ae-4c8a-abf4-f9e67509e192"
 
 resource_group_name         = "vladimirpoutine69"
 resource_group_location     = "francecentral"
@@ -15,5 +14,7 @@ runtime_name                = "python"
 runtime_version             = "3.11"
 cosmos_account_name         = "vladimirpoutine69"
 
-tenant_id           = "901cb4ca-b862-4029-9306-e5cd0f6d9f86"
-entra_client_id     = "f6fe2ea9-9292-482f-9eb7-b60f58c39207"
+github_actions_object_id = "61d850ea-a0df-410f-9c58-99ef8b77ecac"
+
+tenant_id       = "901cb4ca-b862-4029-9306-e5cd0f6d9f86"
+entra_client_id = "f6fe2ea9-9292-482f-9eb7-b60f58c39207"
