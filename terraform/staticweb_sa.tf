@@ -9,6 +9,10 @@ resource "azurerm_storage_account" "static_website" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
+  static_website {
+    index_document = "index.html"
+  }
+
   # Pas besoin de CORS ici - MSAL gère tout côté client
   # Les appels API vers la Function App sont gérés par CORS de la Function App
 }
