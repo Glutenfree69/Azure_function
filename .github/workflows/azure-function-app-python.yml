@@ -148,17 +148,8 @@ jobs:
         ls -la .python_packages/lib/site-packages/
         echo ""
         echo "Testing imports locally:"
-        python -c "
-        import azure.functions as func
-        import json
-        import os
-        from azure.cosmos import CosmosClient, exceptions
-        from azure.identity import DefaultAzureCredential
-        import logging
-        from datetime import datetime
-        print('✅ All imports successful')
-                " || echo "❌ Import error detected"
-                popd
+        python -c "import azure.functions as func; import json; import os; from azure.cosmos import CosmosClient, exceptions; from azure.identity import DefaultAzureCredential; import logging; from datetime import datetime; print('✅ All imports successful')" || echo "❌ Import error detected"
+        popd
 
     - name: 'Create deployment package'
       shell: bash
@@ -166,23 +157,13 @@ jobs:
         echo "=== DEPLOYMENT PACKAGE CREATION ==="
         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
 
-        echo "Files to be packaged:"
-        find . -type f ! -path "./.git*" ! -path "./__pycache__/*" ! -name "*.pyc" ! -path "./venv/*" ! -name ".env*" ! -name "local.settings.json"
-
-        echo ""
         echo "Creating ZIP package..."
         zip -r function-app.zip . \
-          -x "*.git*" "__pycache__/*" "*.pyc" "venv/*" ".env*" "local.settings.json" \
-          -v
+          -x "*.git*" "*__pycache__*" "*.pyc" "*venv*" "*.env*" "*local.settings.json*" "*terraform*" "*.github*" "*website*" "*.python_packages*"
+
         popd
-
-        echo ""
-        echo "ZIP package created:"
-        ls -la function-app.zip
-
-        echo ""
-        echo "ZIP contents:"
-        unzip -l function-app.zip
+        ls -lh function-app.zip
+        unzip -l function-app.zip | head -30
 
     - name: 'Deploy to Azure Functions'
       shell: bash
