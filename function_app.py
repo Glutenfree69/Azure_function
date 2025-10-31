@@ -9,7 +9,7 @@ import jwt
 import requests
 from functools import wraps
 
-# Configuration avec authentification ANONYMOUS (MSAL gère l'auth)
+# Configuration avec authentification ANONYMOUS (MSAL gère l'auth) - TEST TEST TEST
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 # Configuration Entra ID
@@ -32,28 +32,28 @@ def get_jwks():
 def validate_token(token: str) -> dict:
     """
     Valide un token JWT et retourne les claims si valide
-    
+
     Raises:
         ValueError: Si le token est invalide
     """
     try:
         unverified_header = jwt.get_unverified_header(token)
         kid = unverified_header.get('kid')
-        
+
         if not kid:
             raise ValueError("Token sans kid")
-        
+
         jwks = get_jwks()
         public_key = None
-        
+
         for key in jwks.get('keys', []):
             if key.get('kid') == kid:
                 public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key))
                 break
-        
+
         if not public_key:
             raise ValueError("Clé publique non trouvée")
-        
+
         decoded = jwt.decode(
             token,
             public_key,
@@ -67,10 +67,10 @@ def validate_token(token: str) -> dict:
                 "verify_iss": True
             }
         )
-        
+
         logging.info(f"Token validé pour: {decoded.get('name', 'unknown')}")
         return decoded
-        
+
     except jwt.ExpiredSignatureError:
         logging.error("Token expiré")
         raise ValueError("Token expiré")
@@ -89,7 +89,7 @@ def require_auth(handler):
     @wraps(handler)
     def wrapper(req: func.HttpRequest) -> func.HttpResponse:
         auth_header = req.headers.get('Authorization', '')
-        
+
         if not auth_header.startswith('Bearer '):
             logging.warning("Header Authorization manquant ou invalide")
             return func.HttpResponse(
@@ -100,14 +100,14 @@ def require_auth(handler):
                     'Access-Control-Allow-Origin': req.headers.get('Origin', '*')
                 }
             )
-        
+
         token = auth_header.replace('Bearer ', '')
-        
+
         try:
             claims = validate_token(token)
             req.claims = claims
             return handler(req)
-            
+
         except ValueError as e:
             logging.error(f"Token invalide: {str(e)}")
             return func.HttpResponse(
@@ -118,7 +118,7 @@ def require_auth(handler):
                     'Access-Control-Allow-Origin': req.headers.get('Origin', '*')
                 }
             )
-    
+
     return wrapper
 
 # ROUTES
@@ -127,7 +127,7 @@ def require_auth(handler):
 def counter_preflight(req: func.HttpRequest) -> func.HttpResponse:
     """Gère les requêtes preflight CORS"""
     logging.info('Preflight CORS request')
-    
+
     return func.HttpResponse(
         status_code=204,
         headers={
@@ -142,10 +142,10 @@ def counter_preflight(req: func.HttpRequest) -> func.HttpResponse:
 @require_auth
 def counter(req: func.HttpRequest) -> func.HttpResponse:
     """Endpoint principal du compteur avec authentification JWT"""
-    
+
     user_name = req.claims.get('name', req.claims.get('preferred_username', 'unknown'))
     user_email = req.claims.get('email', req.claims.get('upn', 'unknown'))
-    
+
     logging.info(f"Requête authentifiée: {user_name} ({user_email})")
 
     try:
@@ -186,10 +186,10 @@ def counter(req: func.HttpRequest) -> func.HttpResponse:
 def create_json_response(data, status_code=200, origin=None):
     """Crée une réponse JSON avec les headers CORS appropriés"""
     headers = {'Content-Type': 'application/json'}
-    
+
     if origin:
         headers['Access-Control-Allow-Origin'] = origin
-    
+
     return func.HttpResponse(
         json.dumps(data),
         status_code=status_code,
@@ -230,7 +230,7 @@ def handle_get_request(container, counter_id, user_name=None, req=None):
     """Gère les requêtes GET"""
     try:
         counter_doc = get_or_create_counter(container, counter_id)
-        
+
         return create_json_response(
             {
                 "value": counter_doc['value'],
